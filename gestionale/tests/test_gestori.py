@@ -47,6 +47,19 @@ class TestGestoreUtenti(BaseTestGestori):
         super().setUp()
         self.gestore = GestoreUtenti(self.azienda)
 
+    def _crea_utente_test(self, username, nome, cognome, ruolo):
+        """Inserisce direttamente un utente nel DB con password 'cambiami123' per i test di setup."""
+        from gestionale.database import create_connection
+        password_hash = self.gestore.hashPassword("cambiami123")
+        conn = create_connection(self.db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, nome, cognome, password_hash, "ATTIVO", ruolo.value)
+        )
+        conn.commit()
+        conn.close()
+
     def test_login_admin_default(self):
         """L'admin di default (admin/admin) deve poter accedere"""
         utente = self.gestore.login("admin", "admin")
@@ -62,26 +75,9 @@ class TestGestoreUtenti(BaseTestGestori):
         with self.assertRaises(ValueError):
             self.gestore.login("fantasma", "password")
 
-    def test_registrazione_nuovo_staff(self):
-        nuovo = self.gestore.registraUtente("mario.rossi", "Mario", "Rossi", RuoloUtente.STAFF)
-        self.assertEqual(nuovo.username, "mario.rossi")
-        self.assertFalse(nuovo.isAdmin())
-        # Verifica che può fare login con password di default
-        logged = self.gestore.login("mario.rossi", "cambiami123")
-        self.assertIsNotNone(logged)
-
-    def test_registrazione_nuovo_admin(self):
-        nuovo = self.gestore.registraUtente("admin2", "Admin", "Due", RuoloUtente.ADMIN)
-        self.assertTrue(nuovo.isAdmin())
-
-    def test_registrazione_username_duplicato(self):
-        self.gestore.registraUtente("duplicato", "Test", "User", RuoloUtente.STAFF)
-        with self.assertRaises(ValueError):
-            self.gestore.registraUtente("duplicato", "Altro", "User", RuoloUtente.STAFF)
-
     def test_revoca_utente(self):
         admin = self.gestore.login("admin", "admin")
-        self.gestore.registraUtente("da_revocare", "Test", "Revoca", RuoloUtente.STAFF)
+        self._crea_utente_test("da_revocare", "Test", "Revoca", RuoloUtente.STAFF)
         self.gestore.revocaUtente("da_revocare", admin)
         # L'utente revocato non può più fare login
         with self.assertRaises(ValueError):
@@ -93,27 +89,27 @@ class TestGestoreUtenti(BaseTestGestori):
             self.gestore.revocaUtente("admin", admin)
 
     def test_revoca_senza_permessi(self):
-        self.gestore.registraUtente("staff1", "Staff", "Uno", RuoloUtente.STAFF)
+        self._crea_utente_test("staff1", "Staff", "Uno", RuoloUtente.STAFF)
         staff = self.gestore.login("staff1", "cambiami123")
         with self.assertRaises(PermissionError):
             self.gestore.revocaUtente("admin", staff)
 
     def test_riattiva_utente(self):
         admin = self.gestore.login("admin", "admin")
-        self.gestore.registraUtente("riattiva", "Test", "Ri", RuoloUtente.STAFF)
+        self._crea_utente_test("riattiva", "Test", "Ri", RuoloUtente.STAFF)
         self.gestore.revocaUtente("riattiva", admin)
         self.gestore.riattivaUtente("riattiva", admin)
         logged = self.gestore.login("riattiva", "cambiami123")
         self.assertIsNotNone(logged)
 
     def test_reset_password(self):
-        self.gestore.registraUtente("reset_test", "Test", "Reset", RuoloUtente.STAFF)
+        self._crea_utente_test("reset_test", "Test", "Reset", RuoloUtente.STAFF)
         self.gestore.resetPassword("reset_test")
         logged = self.gestore.login("reset_test", "cambiami123")
         self.assertIsNotNone(logged)
 
     def test_modifica_password(self):
-        self.gestore.registraUtente("cambio_pwd", "Test", "Pwd", RuoloUtente.STAFF)
+        self._crea_utente_test("cambio_pwd", "Test", "Pwd", RuoloUtente.STAFF)
         utente = self.gestore.login("cambio_pwd", "cambiami123")
         self.gestore.modificaPassword(utente, "cambiami123", "nuova_password_123", "nuova_password_123")
         # La vecchia password non funziona più

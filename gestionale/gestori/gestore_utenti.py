@@ -87,30 +87,6 @@ class GestoreUtenti:
         except Exception as e:
             print(f"Errore nell'aggiunta utente: {e}")
 
-    def registraUtente(self, username: str, nome: str, cognome: str, ruolo: RuoloUtente) -> Utente:
-        """Registra un nuovo utente con password di default 'cambiami123'. Solleva ValueError se duplicato."""
-        if self._trova_utente(username):
-            raise ValueError(f"Username '{username}' già esistente")
-
-        nome_norm = self._normalizza(nome)
-        cognome_norm = self._normalizza(cognome)
-        default_password = "cambiami123"
-        password_hash = self.hashPassword(default_password)
-
-        conn = self._get_conn()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO.value, ruolo.value)
-        )
-        conn.commit()
-        new_id = cur.lastrowid
-        conn.close()
-        return Utente(new_id, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, ruolo)
-
     def cambiaPasswordUtente(self, utente: Utente, password_vecchia: str,
                              password_nuova: str, password_conferma: str) -> None:
         """Cambia la password di un utente dopo verifica della vecchia password."""
