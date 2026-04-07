@@ -72,18 +72,22 @@ def create_app(db_path=None):
     @app.route("/")
     @login_required
     def home():
-        return render_template("home.html")
+        dashboard = gestori["schede"].dashboardData()
+        return render_template("home.html", dashboard=dashboard)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-            utente = gestori["utenti"].login(username, password)
-            if utente and utente.stato == StatoEntita.ATTIVO:
-                session["username"] = utente.username
-                return redirect(url_for("home"))
-            return render_template("login.html", error="Credenziali non valide o utente disattivato")
+            try:
+                utente = gestori["utenti"].login(username, password)
+                if utente and utente.stato == StatoEntita.ATTIVO:
+                    session["username"] = utente.username
+                    return redirect(url_for("home"))
+                return render_template("login.html", error="Credenziali non valide o utente disattivato")
+            except ValueError:
+                return render_template("login.html", error="Credenziali non valide o utente disattivato")
         return render_template("login.html")
 
     @app.route("/logout")
@@ -107,13 +111,11 @@ def create_app(db_path=None):
         if request.method == "POST":
             gestori["clienti"].aggiungiCliente(
                 request.form.get("ragione_sociale", ""),
-                request.form.get("nome", ""),
-                request.form.get("cognome", ""),
-                request.form.get("indirizzo", ""),
-                request.form.get("telefono", ""),
-                "",
-                "",
-                request.form.get("note", ""),
+                indirizzo=request.form.get("indirizzo", ""),
+                telefono=request.form.get("telefono", ""),
+                note=request.form.get("note", ""),
+                nome=request.form.get("nome", ""),
+                cognome=request.form.get("cognome", ""),
             )
             return redirect(url_for("clienti"))
         return render_template("clienti_new.html")
@@ -165,13 +167,16 @@ def create_app(db_path=None):
     @login_required
     def operai_new():
         if request.method == "POST":
-            gestori["operai"].aggiungiOperaio(
-                request.form.get("nome", ""),
-                request.form.get("cognome", ""),
-                request.form.get("alias", ""),
-                request.form.get("note", ""),
-                float(request.form.get("costo_orario_base", "0") or 0),
-            )
+            try:
+                gestori["operai"].aggiungiOperaio(
+                    request.form.get("nome", ""),
+                    request.form.get("cognome", ""),
+                    float(request.form.get("costo_orario_base", "0") or 0),
+                    alias=request.form.get("alias", ""),
+                    note=request.form.get("note", ""),
+                )
+            except ValueError:
+                pass
             return redirect(url_for("operai"))
         return render_template("operaio_new.html")
 
@@ -222,13 +227,15 @@ def create_app(db_path=None):
     @login_required
     def materiali_new():
         if request.method == "POST":
-            gestori["materiali"].aggiungiMateriale(
-                request.form.get("descrizione", ""),
-                request.form.get("unita_misura", "pz"),
-                float(request.form.get("prezzo_unitario", "0") or 0),
-                request.form.get("note", ""),
-                request.form.get("unita_misura", "pz"),
-            )
+            try:
+                gestori["materiali"].aggiungiMateriale(
+                    request.form.get("descrizione", ""),
+                    request.form.get("unita_misura", "pz"),
+                    float(request.form.get("prezzo_unitario", "0") or 0),
+                    request.form.get("note", ""),
+                )
+            except ValueError:
+                pass
             return redirect(url_for("materiali"))
         return render_template("materiale_new.html")
 
@@ -279,15 +286,24 @@ def create_app(db_path=None):
     @login_required
     def progetti_new():
         if request.method == "POST":
-            gestori["progetti"].aggiungiProgetto(
-                request.form.get("nome_progetto", ""),
-                request.form.get("id_cliente", "0"),
-                request.form.get("indirizzo_cantiere", ""),
-                request.form.get("note", ""),
-            )
+            id_cliente_raw = request.form.get("id_cliente", "0")
+            try:
+                gestori["progetti"].creaProgetto(
+                    request.form.get("nome_progetto", ""),
+                    int(id_cliente_raw) if id_cliente_raw else 0,
+                    request.form.get("indirizzo_cantiere", ""),
+                    request.form.get("note", ""),
+                )
+            except ValueError:
+                pass
+            # Redirect al cliente se pre-selezionato
+            from_cliente = request.form.get("from_cliente")
+            if from_cliente:
+                return redirect(url_for("clienti_detail", item_id=from_cliente))
             return redirect(url_for("progetti"))
         clienti = gestori["clienti"].listaClienti()
-        return render_template("progetto_new.html", clienti=clienti)
+        preselect_cliente = request.args.get("id_cliente")
+        return render_template("progetto_new.html", clienti=clienti, preselect_cliente=preselect_cliente)
 
     @app.route("/progetti/<int:item_id>")
     @login_required
@@ -296,7 +312,9 @@ def create_app(db_path=None):
         if not item:
             abort(404)
         clienti = gestori["clienti"].listaClienti()
-        return render_template("progetti_detail.html", item=item, clienti=clienti)
+        clienti_by_id = {c.id: c for c in clienti}
+        cliente = clienti_by_id.get(item.get("id_cliente"))
+        return render_template("progetti_detail.html", item=item, clienti=clienti, cliente=cliente)
 
     @app.route("/progetti/<int:item_id>/edit", methods=["GET", "POST"])
     @login_required

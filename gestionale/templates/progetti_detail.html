@@ -24,7 +24,13 @@
       </div>
       <div class="detail-item">
         <label>Cliente</label>
-        <p>Client #{{ item.id_cliente }}</p>
+        <p>
+          {% if cliente %}
+          <a href="{{ url_for('clienti_detail', item_id=cliente.id) }}">{{ cliente.ragione_sociale }}</a>
+          {% else %}
+          Cliente #{{ item.id_cliente }}
+          {% endif %}
+        </p>
       </div>
       <div class="detail-item">
         <label>Indirizzo Cantiere</label>
@@ -55,7 +61,7 @@
     </div>
   </div>
 
-  {% if item.ore_totali > 0 or item.costo_totale > 0 %}
+  {% if item.costo_totale > 0 or item.ore_totali > 0 %}
   <div class="details-card">
     <h2>📊 Riepilogo Progetto</h2>
     <div class="details-grid">
@@ -70,6 +76,44 @@
     </div>
   </div>
   {% endif %}
+
+  <!-- Schede giornaliere del progetto -->
+  <div class="details-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+      <h2 style="margin:0;">📋 Schede Giornaliere</h2>
+      {% if item.stato == 'IN_CORSO' %}
+      <a href="{{ url_for('giornaliero') }}" class="btn-primary">+ Nuova Scheda</a>
+      {% endif %}
+    </div>
+    {% if item.schede %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Data</th>
+            <th>Descrizione</th>
+            <th class="col-azioni">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in item.schede %}
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.data }}</td>
+            <td>{{ s.descrizione or '–' }}</td>
+            <td class="col-azioni">
+              <a href="{{ url_for('giornaliero_detail', item_id=s.id) }}" class="btn-secondary">👁 Apri</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessuna scheda giornaliera per questo progetto.</p>
+    {% endif %}
+  </div>
 </div>
 
 {% endblock %}

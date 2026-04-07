@@ -61,7 +61,7 @@
 
   {% if item.numero_schede > 0 %}
   <div class="details-card">
-    <h2>📊 Storico Lavoro</h2>
+    <h2>📊 Riepilogo Lavoro</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Ore Totali Lavorate</label>
@@ -76,6 +76,47 @@
         <p><strong>{{ item.numero_schede }}</strong></p>
       </div>
     </div>
+  </div>
+  {% endif %}
+
+  <!-- Storico voci ordinate per data desc (ultima modifica prima) -->
+  {% if item.storico_voci %}
+  <div class="details-card">
+    <h2>📋 Storico Voci (ultime modifiche prima)</h2>
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Progetto</th>
+            <th>Descrizione</th>
+            <th>Ore</th>
+            <th>Costo/h</th>
+            <th>Totale</th>
+            <th class="col-azioni">Scheda</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in item.storico_voci %}
+          <tr>
+            <td>{{ v.data }}</td>
+            <td>{{ v.nome_progetto }}</td>
+            <td>{{ v.descrizione or '–' }}</td>
+            <td>{{ v.ore_lavorate|round(2) }} h</td>
+            <td>€ {{ v.costo_orario_snapshot|round(2) }}/h</td>
+            <td>€ {{ v.costo_totale|round(2) }}</td>
+            <td class="col-azioni">
+              <a href="{{ url_for('giornaliero_detail', item_id=v.id_scheda) }}" class="btn-secondary">👁 Apri</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="details-card">
+    <p class="table-info">Nessuna voce di lavoro registrata per questo operaio.</p>
   </div>
   {% endif %}
 </div>

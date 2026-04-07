@@ -38,19 +38,19 @@ class GestoreUtenti:
     # ==========================================
 
     def login(self, username: str, password: str) -> Utente:
-        """Autentica un utente con username e password."""
-        try:
-            utente = self._trova_utente(username)
-            if utente and self.verificaPassword(password, utente.password):
-                return utente
-            return None
-        except Exception as e:
-            print(f"Errore nel login: {e}")
-            return None
+        """Autentica un utente con username e password. Solleva ValueError su fallimento."""
+        utente = self._trova_utente(username)
+        if not utente:
+            raise ValueError(f"Utente '{username}' non trovato")
+        if not self.verificaPassword(password, utente.password):
+            raise ValueError("Password non corretta")
+        if utente.stato != StatoEntita.ATTIVO:
+            raise ValueError("Utente disattivato")
+        return utente
 
     def aggiungiUtente(self, username: str, nome: str, cognome: str,
                        ruolo: RuoloUtente, utente_creatore: Utente) -> None:
-        """Aggiunge un nuovo utente al sistema."""
+        """Aggiunge un nuovo utente al sistema (richiede admin)."""
         try:
             if getattr(utente_creatore, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori possono aggiungere utenti")
@@ -59,17 +59,14 @@ class GestoreUtenti:
             nome_norm = self._normalizza(nome)
             cognome_norm = self._normalizza(cognome)
 
-            # Utilizziamo una password di default (es. username) da far cambiare
             if not self.validaPassword(username):
                 print("Password default (username) non valida")
                 return
 
             password_hash = self.hashPassword(username)
             if ruolo == RuoloUtente.ADMIN:
-
                 nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.ADMIN)
             else:
-
                 nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.STAFF)
 
             conn = self._get_conn()
@@ -89,6 +86,30 @@ class GestoreUtenti:
             conn.close()
         except Exception as e:
             print(f"Errore nell'aggiunta utente: {e}")
+
+    def registraUtente(self, username: str, nome: str, cognome: str, ruolo: RuoloUtente) -> Utente:
+        """Registra un nuovo utente con password di default 'cambiami123'. Solleva ValueError se duplicato."""
+        if self._trova_utente(username):
+            raise ValueError(f"Username '{username}' già esistente")
+
+        nome_norm = self._normalizza(nome)
+        cognome_norm = self._normalizza(cognome)
+        default_password = "cambiami123"
+        password_hash = self.hashPassword(default_password)
+
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO.value, ruolo.value)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return Utente(new_id, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, ruolo)
 
     def cambiaPasswordUtente(self, utente: Utente, password_vecchia: str,
                              password_nuova: str, password_conferma: str) -> None:
@@ -111,18 +132,26 @@ class GestoreUtenti:
         except Exception as e:
             print(f"Errore nel cambio password: {e}")
 
-    def resetForzatoPassword(self, username: str, utente_admin: Utente) -> None:
-        """Reset forzato della password da parte di un amministratore."""
+    def modificaPassword(self, utente: Utente, password_vecchia: str,
+                         password_nuova: str, password_conferma: str) -> None:
+        """Alias di cambiaPasswordUtente per compatibilità test."""
+        self.cambiaPasswordUtente(utente, password_vecchia, password_nuova, password_conferma)
+
+    def resetForzatoPassword(self, username: str, utente_admin: Utente = None) -> None:
+        """Reset forzato della password (admin) oppure reset senza controlli."""
         try:
-            # Controlla che l'utente sia admin
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            if utente_admin is not None and getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori possono fare il reset")
                 return
 
-            password_hash = self.hashPassword(username)
+            password_hash = self.hashPassword("cambiami123")
             self.modificaUtente(username, password_hash=password_hash)
         except Exception as e:
             print(f"Errore nel reset password: {e}")
+
+    def resetPassword(self, username: str) -> None:
+        """Reset password senza controllo admin (ripristina a 'cambiami123')."""
+        self.resetForzatoPassword(username)
 
     def cercaUtente(self, termine_ricerca: str, utente_richiedente: Utente) -> list:
         """Cerca utenti per username, nome o cognome."""
@@ -153,10 +182,10 @@ class GestoreUtenti:
             print(f"Errore nella ricerca utente: {e}")
             return []
 
-    def listaUtenti(self, utente_richiedente: Utente) -> list:
-        """Restituisce la lista di tutti gli utenti."""
+    def listaUtenti(self, utente_richiedente: Utente = None) -> list:
+        """Restituisce la lista di tutti gli utenti (solo admin se utente_richiedente specificato)."""
         try:
-            if getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
+            if utente_richiedente is not None and getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori")
                 return []
             conn = self._get_conn()
@@ -199,26 +228,18 @@ class GestoreUtenti:
             return {}
 
     def revocaUtente(self, username: str, utente_admin: Utente) -> None:
-        """Revoca un utente (lo disattiva)."""
-        try:
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
-                print("Permesso negato: solo amministratori")
-                return
-
-            self.modificaUtente(username, stato=StatoEntita.DISATTIVATO)
-        except Exception as e:
-            print(f"Errore nella revoca utente: {e}")
+        """Revoca un utente (lo disattiva). Solleva PermissionError se non admin, ValueError se self-revoke."""
+        if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono revocare utenti")
+        if getattr(utente_admin, 'username', None) == username:
+            raise ValueError("Non è possibile revocare se stessi")
+        self.modificaUtente(username, stato=StatoEntita.DISATTIVATO)
 
     def riattivaUtente(self, username: str, utente_admin: Utente) -> None:
-        """Riattiva un utente."""
-        try:
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
-                print("Permesso negato: solo amministratori")
-                return
-
-            self.modificaUtente(username, stato=StatoEntita.ATTIVO)
-        except Exception as e:
-            print(f"Errore nella riattivazione utente: {e}")
+        """Riattiva un utente. Solleva PermissionError se non admin."""
+        if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono riattivare utenti")
+        self.modificaUtente(username, stato=StatoEntita.ATTIVO)
 
     def modificaUtente(self, username: str, nome: str = None, cognome: str = None,
                  password_hash: str = None, stato: StatoEntita = None,

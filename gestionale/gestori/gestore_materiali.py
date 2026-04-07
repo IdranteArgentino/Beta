@@ -27,35 +27,30 @@ class GestoreMateriali:
     # METODI PUBBLICI
     # ==========================================
 
-    def aggiungiMateriale(self, descrizione: str, unita_misura: str, prezzo_unitario: int,
-                          note: str, unitaDiMisura : str) -> None:
-        """Aggiunge un nuovo materiale al catalogo."""
-        try:
-            desc_norm = self._normalizza(descrizione)
+    def aggiungiMateriale(self, descrizione: str, unita_misura: str, prezzo_unitario_base: float,
+                          note: str = "", unitaDiMisura: str = None) -> 'Materiale':
+        """Aggiunge un nuovo materiale al catalogo. Restituisce Materiale. Solleva ValueError se duplicato o prezzo invalido."""
+        desc_norm = self._normalizza(descrizione)
 
-            try:
-                self._verifica_duplicati(desc_norm)
-            except ValueError as e:
-                print(e)
-                return  # Blocca l'inserimento
+        self._verifica_duplicati(desc_norm)
 
-            if not self._validaPrezzo(float(prezzo_unitario)):
-                print("Prezzo non valido")
-                return
+        if not self._validaPrezzo(float(prezzo_unitario_base)):
+            raise ValueError(f"Prezzo non valido: {prezzo_unitario_base}")
 
-            conn = self._get_conn()
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO materiali (descrizione, unita_misura, prezzo_unitario_base, stato, note)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (desc_norm, unita_misura, float(prezzo_unitario), StatoEntita.ATTIVO.value, note)
-            )
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"Errore nell'aggiunta materiale: {e}")
+        um = unitaDiMisura if unitaDiMisura is not None else unita_misura
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO materiali (descrizione, unita_misura, prezzo_unitario_base, stato, note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (desc_norm, um, float(prezzo_unitario_base), StatoEntita.ATTIVO.value, note)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return Materiale(new_id, desc_norm, um, float(prezzo_unitario_base), StatoEntita.ATTIVO, note)
 
     def cercaMateriale(self, termine_ricerca: str) -> list:
         """Cerca materiali per descrizione o id."""
@@ -138,37 +133,45 @@ class GestoreMateriali:
             print(f"Errore nel recupero dettaglio materiale: {e}")
             return {}
 
-    def modificaMateriale(self, id_materiale: int, descrizione: str = None, 
-                          unita_misura: str = None, prezzo_unitario_base: float = None, 
+    def modificaMateriale(self, id_materiale: int, updates: dict = None, descrizione: str = None,
+                          unita_misura: str = None, prezzo_unitario_base: float = None,
                           note: str = None, stato: StatoEntita = None) -> None:
-        """Modifica i dati di un materiale."""
+        """Modifica i dati di un materiale. Accetta dict come secondo parametro o kwargs."""
         try:
+            if updates and isinstance(updates, dict):
+                descrizione = updates.get("descrizione", descrizione)
+                unita_misura = updates.get("unita_misura", unita_misura)
+                prezzo_unitario_base = updates.get("prezzo_unitario_base", prezzo_unitario_base)
+                note = updates.get("note", note)
+                if "stato" in updates:
+                    stato = StatoEntita(updates["stato"]) if isinstance(updates["stato"], str) else updates["stato"]
+
             conn = self._get_conn()
             cur = conn.cursor()
-            updates = []
+            update_parts = []
             params = []
 
             if descrizione is not None:
-                updates.append("descrizione = ?")
+                update_parts.append("descrizione = ?")
                 params.append(self._normalizza(descrizione))
             if unita_misura is not None:
-                updates.append("unita_misura = ?")
+                update_parts.append("unita_misura = ?")
                 params.append(unita_misura)
             if prezzo_unitario_base is not None:
                 if not self._validaPrezzo(float(prezzo_unitario_base)):
                     print("Prezzo non valido per la modifica")
                 else:
-                    updates.append("prezzo_unitario_base = ?")
+                    update_parts.append("prezzo_unitario_base = ?")
                     params.append(float(prezzo_unitario_base))
             if note is not None:
-                updates.append("note = ?")
+                update_parts.append("note = ?")
                 params.append(note)
             if stato is not None:
-                updates.append("stato = ?")
+                update_parts.append("stato = ?")
                 params.append(stato.value)
 
-            if updates:
-                query = f"UPDATE materiali SET {', '.join(updates)} WHERE id = ?"
+            if update_parts:
+                query = f"UPDATE materiali SET {', '.join(update_parts)} WHERE id = ?"
                 params.append(id_materiale)
                 cur.execute(query, params)
                 conn.commit()

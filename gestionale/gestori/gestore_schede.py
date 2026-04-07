@@ -18,29 +18,32 @@ class GestoreSchede:
     # METODI PUBBLICI UML
     # ==========================================
 
-    def creaScheda(self, id_progetto: int, data: str, descrizione: str) -> SchedaGiornaliera | None:
-        """Crea una nuova scheda giornaliera e restituisce l'oggetto salvato."""
-        try:
-            if not self._verificaProgettoModificabile(id_progetto):
-                return None
+    def creaScheda(self, id_progetto: int, data: str, descrizione: str) -> 'SchedaGiornaliera':
+        """Crea una nuova scheda giornaliera e restituisce l'oggetto salvato. Solleva PermissionError se progetto non modificabile."""
+        if not self._verificaProgettoModificabile(id_progetto):
+            raise PermissionError(f"Il progetto #{id_progetto} non è modificabile (completato o non trovato)")
 
-            conn = self._get_conn()
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO schede_giornaliere (data, descrizione, id_progetto) VALUES (?, ?, ?)",
-                (data, descrizione, id_progetto),
-            )
-            conn.commit()
-            new_id = cur.lastrowid
-            conn.close()
-            return SchedaGiornaliera(new_id, data, descrizione, id_progetto)
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO schede_giornaliere (data, descrizione, id_progetto) VALUES (?, ?, ?)",
+            (data, descrizione, id_progetto),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return SchedaGiornaliera(new_id, data, descrizione, id_progetto)
+
+    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> 'SchedaGiornaliera | None':
+        """Alias compatibile per creare una nuova scheda (non solleva eccezioni)."""
+        try:
+            return self.creaScheda(id_progetto, data, descrizione)
+        except PermissionError as e:
+            print(f"Creazione scheda negata: {e}")
+            return None
         except Exception as e:
             print(f"Errore nella creazione scheda: {e}")
             return None
-
-    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> SchedaGiornaliera | None:
-        """Alias compatibile per creare una nuova scheda."""
-        return self.creaScheda(id_progetto, data, descrizione)
 
     def aggiungiAllegato(self, path: str, id_scheda: int = None) -> None:
         """Aggiunge un allegato a una scheda."""
@@ -90,10 +93,6 @@ class GestoreSchede:
         except Exception as e:
             print(f"Errore nell'assegnazione ore operaio: {e}")
             return None
-
-    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> None:
-        """Aggiunge una nuova scheda giornaliera a un progetto."""
-        self.creaScheda(id_progetto, data, descrizione)
 
     def aggiungiVoceMateriale(self, id_scheda: int, id_materiale: int) -> None:
         """Aggiunge una voce materiale alla scheda."""
@@ -147,6 +146,96 @@ class GestoreSchede:
     def rimuoviOperaioDaScheda(self, id_scheda: int, id_operaio: int) -> None:
         """Alias compatibile per rimuovere un operaio da una scheda."""
         self.rimuoviVoceOperaio(id_scheda, id_operaio)
+
+    def dashboardData(self) -> dict:
+        """Restituisce i dati per la home dashboard: lavori settimana, ultimi completati, ultimi in corso, costi."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+
+            # Schede della settimana corrente
+            cur.execute("""
+                SELECT s.id, s.data, s.descrizione, s.id_progetto, p.nome_progetto
+                FROM schede_giornaliere s
+                LEFT JOIN progetti p ON s.id_progetto = p.id
+                WHERE s.data >= date('now', '-6 days')
+                ORDER BY s.data DESC, s.id DESC
+                LIMIT 10
+            """)
+            schede_settimana = [
+                {'id': r['id'], 'data': r['data'], 'descrizione': r['descrizione'],
+                 'id_progetto': r['id_progetto'], 'nome_progetto': r['nome_progetto'] or f"Progetto #{r['id_progetto']}"}
+                for r in cur.fetchall()
+            ]
+
+            # Ultimi progetti completati
+            cur.execute("""
+                SELECT id, nome_progetto, indirizzo_cantiere, stato
+                FROM progetti
+                WHERE stato = 'COMPLETATO'
+                ORDER BY id DESC
+                LIMIT 5
+            """)
+            ultimi_completati = [
+                {'id': r['id'], 'nome_progetto': r['nome_progetto'], 'indirizzo_cantiere': r['indirizzo_cantiere']}
+                for r in cur.fetchall()
+            ]
+
+            # Ultimi progetti in corso
+            cur.execute("""
+                SELECT id, nome_progetto, indirizzo_cantiere, stato
+                FROM progetti
+                WHERE stato = 'IN_CORSO'
+                ORDER BY id DESC
+                LIMIT 5
+            """)
+            ultimi_in_corso = [
+                {'id': r['id'], 'nome_progetto': r['nome_progetto'], 'indirizzo_cantiere': r['indirizzo_cantiere']}
+                for r in cur.fetchall()
+            ]
+
+            # Costo totale progetti in corso
+            cur.execute("""
+                SELECT COALESCE(SUM(vo.ore_lavorate * vo.costo_orario_snapshot), 0) +
+                       COALESCE(SUM(vm.quantita * vm.prezzo_unitario_snapshot), 0) as tot
+                FROM progetti p
+                LEFT JOIN schede_giornaliere s ON s.id_progetto = p.id
+                LEFT JOIN voci_operai vo ON vo.id_scheda = s.id
+                LEFT JOIN voci_materiali vm ON vm.id_scheda = s.id
+                WHERE p.stato = 'IN_CORSO'
+            """)
+            r = cur.fetchone()
+            costo_in_corso = float(r['tot'] or 0)
+
+            # Costo totale settimana
+            cur.execute("""
+                SELECT COALESCE(SUM(vo.ore_lavorate * vo.costo_orario_snapshot), 0) as c_op,
+                       COALESCE(SUM(vm.quantita * vm.prezzo_unitario_snapshot), 0) as c_mat
+                FROM schede_giornaliere s
+                LEFT JOIN voci_operai vo ON vo.id_scheda = s.id
+                LEFT JOIN voci_materiali vm ON vm.id_scheda = s.id
+                WHERE s.data >= date('now', '-6 days')
+            """)
+            r = cur.fetchone()
+            costo_settimana = float((r['c_op'] or 0) + (r['c_mat'] or 0))
+
+            conn.close()
+            return {
+                'schede_settimana': schede_settimana,
+                'ultimi_completati': ultimi_completati,
+                'ultimi_in_corso': ultimi_in_corso,
+                'costo_in_corso': costo_in_corso,
+                'costo_settimana': costo_settimana,
+            }
+        except Exception as e:
+            print(f"Errore nel recupero dati dashboard: {e}")
+            return {
+                'schede_settimana': [],
+                'ultimi_completati': [],
+                'ultimi_in_corso': [],
+                'costo_in_corso': 0.0,
+                'costo_settimana': 0.0,
+            }
 
     def listaSchede(self) -> list:
         """Restituisce le schede giornaliere ordinate per data desc."""

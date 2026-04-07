@@ -59,6 +59,87 @@
   {% endif %}
 </div>
 
+<!-- Dashboard indicatori costi -->
+{% if dashboard %}
+<div class="dashboard-stats">
+  <div class="stat-card">
+    <div class="stat-icon">💰</div>
+    <div class="stat-label">Costo settimana</div>
+    <div class="stat-value">€ {{ "%.2f"|format(dashboard.costo_settimana) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">🏗️</div>
+    <div class="stat-label">Costo progetti in corso</div>
+    <div class="stat-value">€ {{ "%.2f"|format(dashboard.costo_in_corso) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📋</div>
+    <div class="stat-label">Schede questa settimana</div>
+    <div class="stat-value">{{ dashboard.schede_settimana|length }}</div>
+  </div>
+</div>
+
+<div class="dashboard-panels">
+  <!-- Lavori della settimana -->
+  <div class="dashboard-panel">
+    <h3>📋 Lavori della settimana</h3>
+    {% if dashboard.schede_settimana %}
+    <ul class="dashboard-list">
+      {% for s in dashboard.schede_settimana %}
+      <li>
+        <a href="{{ url_for('giornaliero_detail', item_id=s.id) }}">
+          <span class="dash-date">{{ s.data }}</span>
+          <span class="dash-desc">{{ s.descrizione or '–' }}</span>
+          <span class="dash-proj">{{ s.nome_progetto }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="table-info">Nessuna scheda questa settimana.</p>
+    {% endif %}
+  </div>
+
+  <!-- Ultimi in corso -->
+  <div class="dashboard-panel">
+    <h3>🔄 Ultimi progetti in corso</h3>
+    {% if dashboard.ultimi_in_corso %}
+    <ul class="dashboard-list">
+      {% for p in dashboard.ultimi_in_corso %}
+      <li>
+        <a href="{{ url_for('progetti_detail', item_id=p.id) }}">
+          <span class="dash-desc">{{ p.nome_progetto }}</span>
+          <span class="dash-proj">{{ p.indirizzo_cantiere or '–' }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="table-info">Nessun progetto in corso.</p>
+    {% endif %}
+  </div>
+
+  <!-- Ultimi completati -->
+  <div class="dashboard-panel">
+    <h3>✅ Ultimi progetti completati</h3>
+    {% if dashboard.ultimi_completati %}
+    <ul class="dashboard-list">
+      {% for p in dashboard.ultimi_completati %}
+      <li>
+        <a href="{{ url_for('progetti_detail', item_id=p.id) }}">
+          <span class="dash-desc">{{ p.nome_progetto }}</span>
+          <span class="dash-proj">{{ p.indirizzo_cantiere or '–' }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="table-info">Nessun progetto completato.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Sezione Info -->
 <div class="home-info-section">
   <div class="info-card">
@@ -93,7 +174,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .home-card {
@@ -172,6 +253,92 @@
   transform: translateX(4px);
 }
 
+/* Dashboard stats */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-left: 4px solid var(--primary-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-icon { font-size: 1.5rem; }
+.stat-label { font-size: 0.85rem; color: var(--text-secondary); }
+.stat-value { font-size: 1.4rem; font-weight: 700; color: var(--primary-color); }
+
+/* Dashboard panels */
+.dashboard-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-panel {
+  background: var(--surface);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.dashboard-panel h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dashboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dashboard-list li {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+
+.dashboard-list li:last-child {
+  border-bottom: none;
+}
+
+.dashboard-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.dashboard-list a:hover { color: var(--primary-color); }
+
+.dash-date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.dash-desc {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.dash-proj {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 .home-info-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -213,7 +380,9 @@
 }
 
 @media (max-width: 768px) {
-  .home-grid {
+  .home-grid,
+  .dashboard-panels,
+  .dashboard-stats {
     grid-template-columns: 1fr;
   }
 
