@@ -28,7 +28,7 @@ class GestoreMateriali:
     # ==========================================
 
     def aggiungiMateriale(self, descrizione: str, unita_misura: str, prezzo_unitario_base: float,
-                          note: str = "", unitaDiMisura: str = None) -> 'Materiale':
+                          note: str = "") -> 'Materiale':
         """Aggiunge un nuovo materiale al catalogo. Restituisce Materiale. Solleva ValueError se duplicato o prezzo invalido."""
         desc_norm = self._normalizza(descrizione)
 
@@ -37,7 +37,6 @@ class GestoreMateriali:
         if not self._validaPrezzo(float(prezzo_unitario_base)):
             raise ValueError(f"Prezzo non valido: {prezzo_unitario_base}")
 
-        um = unitaDiMisura if unitaDiMisura is not None else unita_misura
         conn = self._get_conn()
         cur = conn.cursor()
         cur.execute(
@@ -45,12 +44,12 @@ class GestoreMateriali:
             INSERT INTO materiali (descrizione, unita_misura, prezzo_unitario_base, stato, note)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (desc_norm, um, float(prezzo_unitario_base), StatoEntita.ATTIVO.value, note)
+            (desc_norm, unita_misura, float(prezzo_unitario_base), StatoEntita.ATTIVO.value, note)
         )
         conn.commit()
         new_id = cur.lastrowid
         conn.close()
-        return Materiale(new_id, desc_norm, um, float(prezzo_unitario_base), StatoEntita.ATTIVO, note)
+        return Materiale(new_id, desc_norm, unita_misura, float(prezzo_unitario_base), StatoEntita.ATTIVO, note)
 
     def cercaMateriale(self, termine_ricerca: str) -> list:
         """Cerca materiali per descrizione o id."""

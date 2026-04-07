@@ -1,7 +1,7 @@
 """Gestore per operazioni di modifica e operazioni complesse su utenti."""
 from ..database import create_connection
 from ..models import Utente, StatoEntita, RuoloUtente
-import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class GestoreUtenti:
@@ -294,19 +294,14 @@ class GestoreUtenti:
     # ==========================================
 
     def hashPassword(self, password: str) -> str:
-        """Genera l'hash della password."""
-        try:
-            return hashlib.sha256(password.encode()).hexdigest()
-        except Exception as e:
-            print(f"Errore nell'hash della password: {e}")
-            return ""
+        """Genera l'hash sicuro della password usando werkzeug (pbkdf2)."""
+        return generate_password_hash(password)
 
     def verificaPassword(self, password: str, password_hash: str) -> bool:
-        """Verifica se la password corrisponde all'hash."""
+        """Verifica se la password corrisponde all'hash (werkzeug check_password_hash)."""
         try:
-            return self.hashPassword(password) == password_hash
-        except Exception as e:
-            print(f"Errore nella verifica password: {e}")
+            return check_password_hash(password_hash, password)
+        except Exception:
             return False
 
     def validaPassword(self, password: str) -> bool:
