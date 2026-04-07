@@ -196,25 +196,40 @@ class GestoreSchede:
 
             # Costo totale progetti in corso
             cur.execute("""
-                SELECT COALESCE(SUM(vo.ore_lavorate * vo.costo_orario_snapshot), 0) +
-                       COALESCE(SUM(vm.quantita * vm.prezzo_unitario_snapshot), 0) as tot
-                FROM progetti p
-                LEFT JOIN schede_giornaliere s ON s.id_progetto = p.id
-                LEFT JOIN voci_operai vo ON vo.id_scheda = s.id
-                LEFT JOIN voci_materiali vm ON vm.id_scheda = s.id
-                WHERE p.stato = 'IN_CORSO'
+                SELECT
+                    COALESCE((
+                        SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot)
+                        FROM progetti p
+                        JOIN schede_giornaliere s ON s.id_progetto = p.id
+                        JOIN voci_operai vo ON vo.id_scheda = s.id
+                        WHERE p.stato = 'IN_CORSO'
+                    ), 0) +
+                    COALESCE((
+                        SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot)
+                        FROM progetti p
+                        JOIN schede_giornaliere s ON s.id_progetto = p.id
+                        JOIN voci_materiali vm ON vm.id_scheda = s.id
+                        WHERE p.stato = 'IN_CORSO'
+                    ), 0) AS tot
             """)
             r = cur.fetchone()
             costo_in_corso = float(r['tot'] or 0)
 
             # Costo totale settimana
             cur.execute("""
-                SELECT COALESCE(SUM(vo.ore_lavorate * vo.costo_orario_snapshot), 0) as c_op,
-                       COALESCE(SUM(vm.quantita * vm.prezzo_unitario_snapshot), 0) as c_mat
-                FROM schede_giornaliere s
-                LEFT JOIN voci_operai vo ON vo.id_scheda = s.id
-                LEFT JOIN voci_materiali vm ON vm.id_scheda = s.id
-                WHERE s.data >= date('now', '-6 days')
+                SELECT
+                    COALESCE((
+                        SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_operai vo ON vo.id_scheda = s.id
+                        WHERE s.data >= date('now', '-6 days')
+                    ), 0) AS c_op,
+                    COALESCE((
+                        SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_materiali vm ON vm.id_scheda = s.id
+                        WHERE s.data >= date('now', '-6 days')
+                    ), 0) AS c_mat
             """)
             r = cur.fetchone()
             costo_settimana = float((r['c_op'] or 0) + (r['c_mat'] or 0))
