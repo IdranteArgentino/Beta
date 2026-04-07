@@ -42,7 +42,7 @@ class GestoreUtenti:
         utente = self._trova_utente(username)
         if not utente:
             raise ValueError(f"Utente '{username}' non trovato")
-        if not self.verificaPassword(password, utente.password):
+        if not self._verificaPassword(password, utente.password):
             raise ValueError("Password non corretta")
         if utente.stato != StatoEntita.ATTIVO:
             raise ValueError("Utente disattivato")
@@ -59,11 +59,11 @@ class GestoreUtenti:
             nome_norm = self._normalizza(nome)
             cognome_norm = self._normalizza(cognome)
 
-            if not self.validaPassword(username):
+            if not self._validaPassword(username):
                 print("Password default (username) non valida")
                 return
 
-            password_hash = self.hashPassword(username)
+            password_hash = self._hashPassword(username)
             if ruolo == RuoloUtente.ADMIN:
                 nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.ADMIN)
             else:
@@ -91,7 +91,7 @@ class GestoreUtenti:
                              password_nuova: str, password_conferma: str) -> None:
         """Cambia la password di un utente dopo verifica della vecchia password."""
         try:
-            if not self.verificaPassword(password_vecchia, utente.password):
+            if not self._verificaPassword(password_vecchia, utente.password):
                 print("Password vecchia non corretta")
                 return
 
@@ -99,11 +99,11 @@ class GestoreUtenti:
                 print("Le password non corrispondono")
                 return
 
-            if not self.validaPassword(password_nuova):
+            if not self._validaPassword(password_nuova):
                 print("Nuova password non valida")
                 return
 
-            password_hash = self.hashPassword(password_nuova)
+            password_hash = self._hashPassword(password_nuova)
             self.modificaUtente(utente.username, password_hash=password_hash)
         except Exception as e:
             print(f"Errore nel cambio password: {e}")
@@ -120,14 +120,10 @@ class GestoreUtenti:
                 print("Permesso negato: solo amministratori possono fare il reset")
                 return
 
-            password_hash = self.hashPassword("cambiami123")
+            password_hash = self._hashPassword("cambiami123")
             self.modificaUtente(username, password_hash=password_hash)
         except Exception as e:
             print(f"Errore nel reset password: {e}")
-
-    def resetPassword(self, username: str) -> None:
-        """Reset password senza controllo admin (ripristina a 'cambiami123')."""
-        self.resetForzatoPassword(username)
 
     def cercaUtente(self, termine_ricerca: str, utente_richiedente: Utente) -> list:
         """Cerca utenti per username, nome o cognome."""
@@ -269,18 +265,18 @@ class GestoreUtenti:
     # METODI PRIVATI
     # ==========================================
 
-    def hashPassword(self, password: str) -> str:
+    def _hashPassword(self, password: str) -> str:
         """Genera l'hash sicuro della password usando werkzeug (pbkdf2)."""
         return generate_password_hash(password)
 
-    def verificaPassword(self, password: str, password_hash: str) -> bool:
+    def _verificaPassword(self, password: str, password_hash: str) -> bool:
         """Verifica se la password corrisponde all'hash (werkzeug check_password_hash)."""
         try:
             return check_password_hash(password_hash, password)
         except Exception:
             return False
 
-    def validaPassword(self, password: str) -> bool:
+    def _validaPassword(self, password: str) -> bool:
         """Valida la password (lunghezza minima, caratteri speciali, ecc)."""
         try:
             # Minimo 6 caratteri

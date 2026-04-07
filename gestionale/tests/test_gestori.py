@@ -50,7 +50,7 @@ class TestGestoreUtenti(BaseTestGestori):
     def _crea_utente_test(self, username, nome, cognome, ruolo):
         """Inserisce direttamente un utente nel DB con password 'cambiami123' per i test di setup."""
         from gestionale.database import create_connection
-        password_hash = self.gestore.hashPassword("cambiami123")
+        password_hash = self.gestore._hashPassword("cambiami123")
         conn = create_connection(self.db_path)
         cur = conn.cursor()
         cur.execute(
@@ -104,7 +104,7 @@ class TestGestoreUtenti(BaseTestGestori):
 
     def test_reset_password(self):
         self._crea_utente_test("reset_test", "Test", "Reset", RuoloUtente.STAFF)
-        self.gestore.resetPassword("reset_test")
+        self.gestore.resetForzatoPassword("reset_test")
         logged = self.gestore.login("reset_test", "cambiami123")
         self.assertIsNotNone(logged)
 
