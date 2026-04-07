@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>➕ Nuovo Operaio</h1>
+    <p class="subtitle">Aggiungi un nuovo operatore al sistema</p>
+  </div>
+  <a href="{{ url_for('operai') }}" class="btn-secondary">← Torna alla lista</a>
+</div>
+
+<div class="form-container">
+  <form method="post" action="{{ url_for('operai_new') }}" class="form-card">
+    <h2>👷 Informazioni Operaio</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="nome">Nome *</label>
+        <input type="text" id="nome" name="nome" placeholder="Es. Marco" required>
+      </div>
+      <div class="form-group">
+        <label for="cognome">Cognome *</label>
+        <input type="text" id="cognome" name="cognome" placeholder="Es. Rossi" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="alias">Alias</label>
+        <input type="text" id="alias" name="alias" placeholder="Es. Marco R.">
+      </div>
+      <div class="form-group">
+        <label for="costo_orario_base">Costo Orario Base *</label>
+        <input type="number" id="costo_orario_base" name="costo_orario_base" step="0.01" placeholder="Es. 25.00" required>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea id="note" name="note" placeholder="Note aggiuntive..." rows="4"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✓ Salva Operaio</button>
+      <a href="{{ url_for('operai') }}" class="btn-cancel">Annulla</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+

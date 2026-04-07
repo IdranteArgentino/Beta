@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🏗️ Progetti</h1>
+    <p class="subtitle">Gestione cantieri e commesse</p>
+  </div>
+  <a href="{{ url_for('progetti_new') }}" class="btn-primary">+ Nuovo Progetto</a>
+</div>
+
+<div class="filters-section">
+  <form method="get" class="search-bar">
+    <input type="text" name="q" placeholder="🔍 Cerca per nome, indirizzo o ID..." value="{{ q }}" class="search-input">
+    <select name="sort" class="sort-select">
+      <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
+      <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
+    </select>
+    <button type="submit" class="btn-search">Cerca</button>
+  </form>
+</div>
+
+<div class="table-container">
+  {% if items %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-index">N°</th>
+          <th class="col-id">#ID</th>
+          <th class="col-prog-nome">Nome Progetto</th>
+          <th class="col-prog-cliente">Cliente</th>
+          <th class="col-prog-indirizzo">Cantiere</th>
+          <th class="col-stato">Stato</th>
+          <th class="col-azioni">Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in items %}
+          <td class="col-index">{{ loop.index }}</td>
+          <td class="col-id"><span class="badge">{{ p.id }}</span></td>
+          <td class="col-prog-nome"><strong>{{ p.nome_progetto }}</strong></td>
+          <td class="col-prog-cliente">Client #{{ p.id_cliente }}</td>
+          <td class="col-prog-indirizzo">{{ p.indirizzo_cantiere or '-' }}</td>
+          <td class="col-stato">
+            {% if p.isAttivo() %}
+            <span class="status-indicator">
+              <span class="status-dot attivo"></span>
+              <span class="badge badge-attivo">In Corso</span>
+            </span>
+            {% else %}
+            <span class="status-indicator">
+              <span class="status-dot disattivato"></span>
+              <span class="badge badge-disattivato">Completato</span>
+            </span>
+            {% endif %}
+          </td>
+          <td class="col-azioni" onclick="event.stopPropagation();">
+            <a href="{{ url_for('progetti_detail', item_id=p.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="table-info">Totale progetti: <strong>{{ items|length }}</strong></p>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">🏗️</div>
+      <h3>Nessun progetto trovato</h3>
+      <p>{% if q %}Prova a modificare i filtri di ricerca{% else %}Inizia aggiungendo il primo progetto{% endif %}</p>
+      <a href="{{ url_for('progetti_new') }}" class="btn-primary">+ Nuovo Progetto</a>
+    </div>
+  {% endif %}
+</div>
+
+
+{% endblock %}
+

@@ -1,0 +1,297 @@
+"""Gestore per operazioni di modifica e operazioni complesse su progetti."""
+from ..database import create_connection
+from ..models import StatoProgetto, Progetto, SchedaGiornaliera
+
+
+class GestoreProgetti:
+    """Gestisce modifiche, validazioni e operazioni complesse su progetti."""
+
+    def __init__(self, azienda):
+        self.azienda = azienda
+        self.db_path = azienda.db_path
+
+    def _get_conn(self):
+        return create_connection(self.db_path)
+
+    def _normalizza(self, testo: str) -> str:
+        """Normalizza una stringa (trim e capitalize)."""
+        if not testo:
+            return ""
+        return " ".join(word.capitalize() for word in testo.strip().split())
+
+    def _verifica_duplicati(self, nome_progetto: str) -> None:
+        """Verifica se esiste un omonimo e lancia un'eccezione come warning."""
+        progetti = self.cercaProgetto(nome_progetto)
+        for p in progetti:
+            if p.nome_progetto.lower() == nome_progetto.lower():
+                raise Exception(f"Attenzione: Esiste già un progetto con il nome '{nome_progetto}'.")
+
+    # ==========================================
+    # METODI PUBBLICI UML
+    # ==========================================
+
+    def aggiungiProgetto(self, nome_progetto: str, id_cliente: str, indirizzo_cantiere: str, note: str) -> None:
+        """Aggiunge un nuovo progetto."""
+        try:
+            nome_norm = self._normalizza(nome_progetto)
+            indirizzo_norm = self._normalizza(indirizzo_cantiere)
+
+            try:
+                self._verifica_duplicati(nome_norm)
+            except Exception as w:
+                print(w)
+
+
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO progetti (nome_progetto, id_cliente, indirizzo_cantiere, stato, note)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (nome_norm, int(id_cliente), indirizzo_norm, StatoProgetto.IN_CORSO.value, note)
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Errore nell'aggiunta progetto: {e}")
+
+    def cambiaStatoProgetto(self, id_progetto: int) -> None:
+        """Cambia lo stato di un progetto (es. da IN_CORSO a COMPLETATO)."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM progetti WHERE id = ?", (id_progetto,))
+            row = cur.fetchone()
+            conn.close()
+            progetto = None if not row else Progetto(
+                row['id'], row['nome_progetto'], row['id_cliente'],
+                row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])
+            )
+            if progetto:
+                nuovo_stato = StatoProgetto.COMPLETATO if progetto.stato == StatoProgetto.IN_CORSO else StatoProgetto.IN_CORSO
+                conn = self._get_conn()
+                cur = conn.cursor()
+                cur.execute("UPDATE progetti SET stato = ? WHERE id = ?", (nuovo_stato.value, id_progetto))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            print(f"Errore nel cambio stato progetto: {e}")
+
+    def cercaProgetto(self, termine_ricerca: str) -> list:
+        """Cerca progetti per nome, indirizzo cantiere o id."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            query = """
+                SELECT * FROM progetti 
+                WHERE nome_progetto LIKE ?
+                   OR indirizzo_cantiere LIKE ?
+                   OR CAST(id AS TEXT) LIKE ?
+                ORDER BY nome_progetto COLLATE NOCASE ASC
+            """
+            termine = f"%{(termine_ricerca or '').strip()}%"
+            cur.execute(query, (termine, termine, termine))
+            rows = cur.fetchall()
+            conn.close()
+
+            progetti = []
+            for row in rows:
+
+                progetti.append(Progetto(row['id'], row['nome_progetto'], row['id_cliente'],
+                                         row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])))
+            return progetti
+        except Exception as e:
+            print(f"Errore nella ricerca progetto: {e}")
+            return []
+
+    def costoTotaleProgetto(self, id_progetto: int) -> float:
+        """Calcola il costo totale di un progetto."""
+        try:
+            costo_operai = self._get_costo_operai(id_progetto)
+            costo_materiali = self._get_costo_materiali(id_progetto)
+            return float(costo_operai + costo_materiali)
+        except Exception as e:
+            print(f"Errore nel calcolo costo totale: {e}")
+            return 0.0
+
+    def dettaglioProgetto(self, id_progetto: int) -> dict:
+        """Restituisce i dettagli completi di un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM progetti WHERE id = ?", (id_progetto,))
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                return {}
+
+            p = Progetto(
+                row['id'], row['nome_progetto'], row['id_cliente'],
+                row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])
+            )
+
+            return {
+                "id": p.id,
+                "nome_progetto": p.nome_progetto,
+                "id_cliente": p.id_cliente,
+                "indirizzo_cantiere": p.indirizzo_cantiere,
+                "stato": p.stato.value,
+                "note": p.note,
+                "costo_totale": self.costoTotaleProgetto(id_progetto),
+                "ore_totali": self._get_totale_ore(id_progetto)
+            }
+        except Exception as e:
+            print(f"Errore nel recupero dettaglio progetto: {e}")
+            return {}
+
+    def modificaProgetto(self, id_progetto: int, nome_progetto: str = None, 
+                         id_cliente: int = None, indirizzo_cantiere: str = None, 
+                         note: str = None, stato: 'StatoProgetto' = None) -> None:
+        """Modifica i dati di un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            updates = []
+            params = []
+
+            if nome_progetto is not None:
+                updates.append("nome_progetto = ?")
+                params.append(self._normalizza(nome_progetto))
+            if id_cliente is not None:
+                updates.append("id_cliente = ?")
+                params.append(id_cliente)
+            if indirizzo_cantiere is not None:
+                updates.append("indirizzo_cantiere = ?")
+                params.append(indirizzo_cantiere)
+            if note is not None:
+                updates.append("note = ?")
+                params.append(note)
+            if stato is not None:
+                updates.append("stato = ?")
+                params.append(stato.value)
+
+            if updates:
+                query = f"UPDATE progetti SET {', '.join(updates)} WHERE id = ?"
+                params.append(id_progetto)
+                cur.execute(query, params)
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Errore nella modifica progetto: {e}")
+
+    def eliminaProgetto(self, id_progetto: int) -> None:
+        """Elimina un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM progetti WHERE id = ?", (id_progetto,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Errore nell'eliminazione progetto: {e}")
+
+    def listaProgetto(self) -> list:
+        """Restituisce la lista di tutti i progetti."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM progetti ORDER BY nome_progetto COLLATE NOCASE ASC")
+            rows = cur.fetchall()
+            conn.close()
+            return [
+                Progetto(
+                    row['id'], row['nome_progetto'], row['id_cliente'],
+                    row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])
+                )
+                for row in rows
+            ]
+        except Exception as e:
+            print(f"Errore nel recupero lista progetti: {e}")
+            return []
+
+    def listaProgetti(self) -> list:
+        """Alias compatibile con le viste web."""
+        return self.listaProgetto()
+
+    def schedeGiornaliereProgetto(self, id_progetto: int = None) -> list:
+        """Ottiene le schede giornaliere associate al progetto."""
+        try:
+            # Se id_progetto è None, proviamo a recuperarlo globalmente, ma normalmente si passa a parametro.
+            # L'UML ometteva i parametri, ma a livello pratico serve un id.
+            if id_progetto is None:
+                return []
+
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM schede_giornaliere WHERE id_progetto = ? ORDER BY data DESC", (id_progetto,))
+            rows = cur.fetchall()
+            conn.close()
+
+            schede = []
+            for row in rows:
+
+                schede.append(SchedaGiornaliera(row['id'], row['data'], row['descrizione'], row['id_progetto']))
+            return schede
+        except Exception as e:
+            print(f"Errore nel recupero schede giornaliere: {e}")
+            return []
+
+    # ==========================================
+    # METODI PRIVATI
+    # ==========================================
+
+    def _get_totale_ore(self, id_progetto: int) -> float:
+        """Ottiene le ore totali lavorate su un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT SUM(ore_lavorate) as tot_ore
+                FROM voci_operai v
+                JOIN schede_giornaliere s ON v.id_scheda = s.id
+                WHERE s.id_progetto = ?
+            """, (id_progetto,))
+            r = cur.fetchone()
+            conn.close()
+            return r['tot_ore'] or 0.0
+        except Exception as e:
+            print(f"Errore nel calcolo ore totali: {e}")
+            return 0.0
+
+    def _get_costo_operai(self, id_progetto: int) -> float:
+        """Ottiene il costo totale della manodopera su un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT SUM(ore_lavorate * costo_orario_snapshot) as tot_costo
+                FROM voci_operai v
+                JOIN schede_giornaliere s ON v.id_scheda = s.id
+                WHERE s.id_progetto = ?
+            """, (id_progetto,))
+            r = cur.fetchone()
+            conn.close()
+            return r['tot_costo'] or 0.0
+        except Exception as e:
+            print(f"Errore nel calcolo costo operai: {e}")
+            return 0.0
+
+    def _get_costo_materiali(self, id_progetto: int) -> float:
+        """Ottiene il costo totale dei materiali su un progetto."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT SUM(quantita * prezzo_unitario_snapshot) as tot_costo
+                FROM voci_materiali v
+                JOIN schede_giornaliere s ON v.id_scheda = s.id
+                WHERE s.id_progetto = ?
+            """, (id_progetto,))
+            r = cur.fetchone()
+            conn.close()
+            return r['tot_costo'] or 0.0
+        except Exception as e:
+            print(f"Errore nel calcolo costo materiali: {e}")
+            return 0.0
+

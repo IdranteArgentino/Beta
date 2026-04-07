@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👷 Operai</h1>
+    <p class="subtitle">Gestione personale e operatori</p>
+  </div>
+  <a href="{{ url_for('operai_new') }}" class="btn-primary">+ Nuovo Operaio</a>
+</div>
+
+<div class="filters-section">
+  <form method="get" class="search-bar">
+    <input type="text" name="q" placeholder="🔍 Cerca per nome, cognome, alias o ID..." value="{{ q }}" class="search-input">
+    <select name="sort" class="sort-select">
+      <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
+      <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
+    </select>
+    <button type="submit" class="btn-search">Cerca</button>
+  </form>
+</div>
+
+<div class="table-container">
+  {% if items %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-index">N°</th>
+          <th class="col-id">#ID</th>
+          <th class="col-nome-op">Nome</th>
+          <th class="col-cognome-op">Cognome</th>
+          <th class="col-alias">Alias</th>
+          <th class="col-costo">Costo Orario</th>
+          <th class="col-stato">Stato</th>
+          <th class="col-azioni">Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in items %}
+          <td class="col-index">{{ loop.index }}</td>
+          <td class="col-id"><span class="badge">{{ o.id }}</span></td>
+          <td class="col-nome-op"><strong>{{ o.nome }}</strong></td>
+          <td class="col-cognome-op">{{ o.cognome }}</td>
+          <td class="col-alias">{{ o.alias or '-' }}</td>
+          <td class="col-costo">€ {{ o.costo_orario_base|round(2) }}/h</td>
+          <td class="col-stato">
+            {% if o.isAttivo() %}
+            <span class="status-indicator">
+              <span class="status-dot attivo"></span>
+              <span class="badge badge-attivo">Attivo</span>
+            </span>
+            {% else %}
+            <span class="status-indicator">
+              <span class="status-dot disattivato"></span>
+              <span class="badge badge-disattivato">Disattivato</span>
+            </span>
+            {% endif %}
+          </td>
+          <td class="col-azioni" onclick="event.stopPropagation();">
+            <a href="{{ url_for('operai_detail', item_id=o.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="table-info">Totale operai: <strong>{{ items|length }}</strong></p>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">👷</div>
+      <h3>Nessun operaio trovato</h3>
+      <p>{% if q %}Prova a modificare i filtri di ricerca{% else %}Inizia aggiungendo il primo operaio{% endif %}</p>
+      <a href="{{ url_for('operai_new') }}" class="btn-primary">+ Nuovo Operaio</a>
+    </div>
+  {% endif %}
+</div>
+
+
+{% endblock %}
+

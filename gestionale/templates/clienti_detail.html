@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👁️ Dettaglio Cliente</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.ragione_sociale }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('clienti') }}" class="btn-secondary">← Torna alla lista</a>
+    <a href="{{ url_for('clienti_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <form method="post" action="{{ url_for('clienti_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo cliente?" data-confirm-second="Seconda conferma: il cliente verra' eliminato in modo permanente.">
+      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+    </form>
+  </div>
+</div>
+
+<div class="details-container">
+  <div class="details-card">
+    <h2>📋 Informazioni Cliente</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Ragione Sociale</label>
+        <p><strong>{{ item.ragione_sociale }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Nome</label>
+        <p>{{ item.nome or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Cognome</label>
+        <p>{{ item.cognome or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Indirizzo</label>
+        <p>{{ item.indirizzo or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Telefono</label>
+        <p>{{ item.telefono or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Stato</label>
+        <p>
+          {% if item.stato == 'ATTIVO' %}
+          <span class="status-indicator">
+            <span class="status-dot attivo"></span>
+            <span class="badge badge-attivo">Attivo</span>
+          </span>
+          {% else %}
+          <span class="status-indicator">
+            <span class="status-dot disattivato"></span>
+            <span class="badge badge-disattivato">Disattivato</span>
+          </span>
+          {% endif %}
+        </p>
+      </div>
+      {% if item.note %}
+      <div class="detail-item full-width">
+        <label>Note</label>
+        <p>{{ item.note }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if item.numero_progetti > 0 %}
+  <div class="details-card">
+    <h2>🏗️ Progetti Associati ({{ item.numero_progetti }})</h2>
+    <ul class="projects-list">
+      {% for p in item.progetti %}
+        <li><a href="{{ url_for('progetti_detail', item_id=p.id) }}">{{ p.nome }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="empty-info">
+    <p>📌 Nessun progetto associato a questo cliente</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+

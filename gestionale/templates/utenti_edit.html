@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>✏️ Modifica Utente</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.username }}</p>
+  </div>
+  <a href="{{ url_for('utenti_detail', item_id=item.id) }}" class="btn-secondary">← Torna al dettaglio</a>
+</div>
+
+<div class="form-container">
+  <form method="post" action="{{ url_for('utenti_edit', item_id=item.id) }}" class="form-card">
+    <h2>⚙️ Dati Utente</h2>
+
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" value="{{ item.username }}" readonly>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="nome">Nome *</label>
+        <input type="text" id="nome" name="nome" value="{{ item.nome }}" required>
+      </div>
+      <div class="form-group">
+        <label for="cognome">Cognome *</label>
+        <input type="text" id="cognome" name="cognome" value="{{ item.cognome }}" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="ruolo">Ruolo *</label>
+        <select id="ruolo" name="ruolo">
+          <option value="STAFF" {% if item.ruolo == 'STAFF' %}selected{% endif %}>Staff</option>
+          <option value="ADMIN" {% if item.ruolo == 'ADMIN' %}selected{% endif %}>Amministratore</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="stato">Stato *</label>
+        <select id="stato" name="stato">
+          <option value="ATTIVO" {% if item.stato == 'ATTIVO' %}selected{% endif %}>Attivo</option>
+          <option value="DISATTIVATO" {% if item.stato == 'DISATTIVATO' %}selected{% endif %}>Disattivato</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✓ Salva Modifiche</button>
+      <a href="{{ url_for('utenti_detail', item_id=item.id) }}" class="btn-cancel">Annulla</a>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('utenti_reset_password', item_id=item.id) }}" id="resetPasswordForm" class="form-card">
+    <h2>🔐 Sicurezza Account</h2>
+    <p class="subtitle">Resetta la password dell'utente a <strong>{{ item.username }}</strong>.</p>
+    <div class="form-actions">
+      <button type="button" class="btn-warning" id="openResetModalBtn">↻ Reset Password</button>
+    </div>
+  </form>
+</div>
+
+<div class="confirm-modal" id="resetConfirmModal" aria-hidden="true">
+  <div class="confirm-modal__overlay"></div>
+  <div class="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
+    <h3 id="resetModalTitle">Conferma reset password</h3>
+    <p id="resetModalText">Vuoi resettare la password di <strong>{{ item.username }}</strong>?</p>
+    <div class="confirm-modal__actions">
+      <button type="button" class="btn-cancel" id="resetModalCancelBtn">Annulla</button>
+      <button type="button" class="btn-danger" id="resetModalConfirmBtn">Continua</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById('resetConfirmModal');
+    const openBtn = document.getElementById('openResetModalBtn');
+    const cancelBtn = document.getElementById('resetModalCancelBtn');
+    const confirmBtn = document.getElementById('resetModalConfirmBtn');
+    const text = document.getElementById('resetModalText');
+    const form = document.getElementById('resetPasswordForm');
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      text.innerHTML = 'Vuoi resettare la password di <strong>{{ item.username }}</strong>?';
+      confirmBtn.textContent = 'Conferma reset';
+    }
+
+    function openModal() {
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    openBtn.addEventListener('click', openModal);
+    cancelBtn.addEventListener('click', closeModal);
+    modal.querySelector('.confirm-modal__overlay').addEventListener('click', closeModal);
+
+    confirmBtn.addEventListener('click', function () {
+      form.submit();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+  })();
+</script>
+{% endblock %}
+

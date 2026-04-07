@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>➕ Nuovo Materiale</h1>
+    <p class="subtitle">Aggiungi un nuovo materiale al magazzino</p>
+  </div>
+  <a href="{{ url_for('materiali') }}" class="btn-secondary">← Torna alla lista</a>
+</div>
+
+<div class="form-container">
+  <form method="post" action="{{ url_for('materiali_new') }}" class="form-card">
+    <h2>📦 Informazioni Materiale</h2>
+
+    <div class="form-group">
+      <label for="descrizione">Descrizione *</label>
+      <input type="text" id="descrizione" name="descrizione" placeholder="Es. Cemento Portland 32.5R" required>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="unita_misura">Unità Misura</label>
+        <input type="text" id="unita_misura" name="unita_misura" placeholder="Es. kg, pz, m" value="pz">
+      </div>
+      <div class="form-group">
+        <label for="prezzo_unitario">Prezzo Unitario *</label>
+        <input type="number" id="prezzo_unitario" name="prezzo_unitario" step="0.01" placeholder="Es. 15.50" required>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea id="note" name="note" placeholder="Note aggiuntive..." rows="4"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✓ Salva Materiale</button>
+      <a href="{{ url_for('materiali') }}" class="btn-cancel">Annulla</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+

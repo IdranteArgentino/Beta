@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>⚙️ Gestione Utenti (Admin)</h1>
+    <p class="subtitle">Amministrazione account e permessi</p>
+  </div>
+  <button class="btn-primary" onclick="toggleNewForm()">+ Nuovo Utente</button>
+</div>
+
+<div class="filters-section">
+  <form method="get" class="search-bar">
+    <input type="text" name="q" placeholder="🔍 Cerca per username, nome o cognome..." value="{{ q }}" class="search-input">
+    <button type="submit" class="btn-search">Cerca</button>
+  </form>
+</div>
+
+<!-- Form aggiunta nuovo utente (nascosto di default) -->
+<div id="newFormContainer" style="display: none; margin-bottom: 2rem;">
+  <div class="form-container">
+    <form method="post" action="{{ url_for('utenti_new') }}" class="form-card">
+      <h2>➕ Nuovo Utente</h2>
+
+      <div class="form-group">
+        <label for="username">Username *</label>
+        <input type="text" id="username" name="username" placeholder="Es. mario.rossi" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="nome">Nome *</label>
+          <input type="text" id="nome" name="nome" placeholder="Es. Mario" required>
+        </div>
+        <div class="form-group">
+          <label for="cognome">Cognome *</label>
+          <input type="text" id="cognome" name="cognome" placeholder="Es. Rossi" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ruolo">Ruolo *</label>
+        <select id="ruolo" name="ruolo" required>
+          <option value="STAFF">Staff</option>
+          <option value="ADMIN">Amministratore</option>
+        </select>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">✓ Crea Utente</button>
+        <button type="button" class="btn-cancel" onclick="toggleNewForm()">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="table-container">
+  {% if items %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-index">N°</th>
+          <th class="col-id">#ID</th>
+          <th class="col-username">Username</th>
+          <th class="col-nome-ut">Nome</th>
+          <th class="col-cognome-ut">Cognome</th>
+          <th class="col-ruolo">Ruolo</th>
+          <th class="col-stato-ut">Stato</th>
+          <th class="col-azioni">Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in items %}
+          <td class="col-index">{{ loop.index }}</td>
+          <td class="col-id"><span class="badge">{{ u.id }}</span></td>
+          <td class="col-username"><strong>{{ u.username }}</strong></td>
+          <td class="col-nome-ut">{{ u.nome }}</td>
+          <td class="col-cognome-ut">{{ u.cognome }}</td>
+          <td class="col-ruolo">
+            {% if u.ruolo.value == 'ADMIN' %}
+            <span class="badge" style="background-color: #fbbf24; color: #92400e;">ADMIN</span>
+            {% else %}
+            <span class="badge">Staff</span>
+            {% endif %}
+          </td>
+          <td class="col-stato-ut">
+            {% if u.stato.value == 'ATTIVO' %}
+            <span class="status-indicator">
+              <span class="status-dot attivo"></span>
+              <span class="badge badge-attivo">Attivo</span>
+            </span>
+            {% else %}
+            <span class="status-indicator">
+              <span class="status-dot disattivato"></span>
+              <span class="badge badge-disattivato">Disattivato</span>
+            </span>
+            {% endif %}
+          </td>
+          <td class="col-azioni" onclick="event.stopPropagation();">
+            <a href="{{ url_for('utenti_detail', item_id=u.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="table-info">Totale utenti: <strong>{{ items|length }}</strong></p>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">⚙️</div>
+      <h3>Nessun utente trovato</h3>
+      <p>{% if q %}Prova a modificare i filtri di ricerca{% else %}Inizia aggiungendo un nuovo utente{% endif %}</p>
+      <button class="btn-primary" onclick="toggleNewForm()">+ Nuovo Utente</button>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function toggleNewForm() {
+  const container = document.getElementById('newFormContainer');
+  container.style.display = container.style.display === 'none' ? 'block' : 'none';
+  if (container.style.display === 'block') {
+    container.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+</script>
+
+{% endblock %}
+

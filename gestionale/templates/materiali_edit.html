@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>✏️ Modifica Materiale</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.descrizione }}</p>
+  </div>
+  <a href="{{ url_for('materiali_detail', item_id=item.id) }}" class="btn-secondary">← Torna al dettaglio</a>
+</div>
+
+<div class="form-container">
+  <form method="post" action="{{ url_for('materiali_edit', item_id=item.id) }}" class="form-card">
+    <h2>📦 Dati Materiale</h2>
+
+    <div class="form-group">
+      <label for="descrizione">Descrizione *</label>
+      <input type="text" id="descrizione" name="descrizione" value="{{ item.descrizione }}" required>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="unita_misura">Unità Misura</label>
+        <input type="text" id="unita_misura" name="unita_misura" value="{{ item.unita_misura }}">
+      </div>
+      <div class="form-group">
+        <label for="prezzo_unitario_base">Prezzo Unitario *</label>
+        <input type="number" id="prezzo_unitario_base" name="prezzo_unitario_base" step="0.01" value="{{ item.prezzo_unitario_base }}" required>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea id="note" name="note" rows="4">{{ item.note or '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✓ Salva Modifiche</button>
+      <a href="{{ url_for('materiali_detail', item_id=item.id) }}" class="btn-cancel">Annulla</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or 'Gestionale Web' }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><a href="{{ url_for('home') }}">📊 Gestionale</a></div>
+    {% if current_user %}
+    <nav class="topbar-nav">
+      <a href="{{ url_for('clienti') }}">👥 Clienti</a>
+      <a href="{{ url_for('operai') }}">👷 Operai</a>
+      <a href="{{ url_for('materiali') }}">📦 Materiali</a>
+      <a href="{{ url_for('progetti') }}">🏗️ Progetti</a>
+      <a href="{{ url_for('giornaliero') }}">📋 Giornaliero</a>
+      {% if is_admin %}<a href="{{ url_for('utenti') }}">⚙️ Utenti</a>{% endif %}
+    </nav>
+    <div class="profile">👤 <strong>{{ current_user.username }}</strong> | <a href="{{ url_for('logout') }}">Logout</a></div>
+    {% endif %}
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <div class="confirm-modal" id="deleteConfirmModal" aria-hidden="true">
+    <div class="confirm-modal__overlay" id="deleteConfirmOverlay"></div>
+    <div class="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <h3 id="deleteConfirmTitle">Conferma eliminazione</h3>
+      <p id="deleteConfirmText">Vuoi davvero procedere?</p>
+      <div class="confirm-modal__actions">
+        <button type="button" class="btn-cancel" id="deleteConfirmCancel">Annulla</button>
+        <button type="button" class="btn-danger" id="deleteConfirmSubmit">Conferma eliminazione</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const modal = document.getElementById('deleteConfirmModal');
+      const overlay = document.getElementById('deleteConfirmOverlay');
+      const text = document.getElementById('deleteConfirmText');
+      const cancelBtn = document.getElementById('deleteConfirmCancel');
+      const submitBtn = document.getElementById('deleteConfirmSubmit');
+      let activeForm = null;
+
+      function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        activeForm = null;
+        submitBtn.textContent = 'Conferma eliminazione';
+      }
+
+      function openModal(form) {
+        activeForm = form;
+        text.textContent = form.dataset.confirmMessage || form.dataset.confirmFirst || 'Vuoi davvero procedere?';
+        submitBtn.textContent = form.dataset.confirmButton || 'Conferma eliminazione';
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (form && form.dataset && form.dataset.doubleConfirm === 'true') {
+          event.preventDefault();
+          openModal(form);
+        }
+      });
+
+      submitBtn.addEventListener('click', function () {
+        if (!activeForm) return;
+        const form = activeForm;
+        closeModal();
+        form.submit();
+      });
+
+      cancelBtn.addEventListener('click', closeModal);
+      overlay.addEventListener('click', closeModal);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+          closeModal();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+

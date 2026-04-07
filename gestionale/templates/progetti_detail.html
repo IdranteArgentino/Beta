@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🏗️ Dettaglio Progetto</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.nome_progetto }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('progetti') }}" class="btn-secondary">← Torna alla lista</a>
+    <a href="{{ url_for('progetti_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <form method="post" action="{{ url_for('progetti_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo progetto?" data-confirm-second="Seconda conferma: il progetto verra' eliminato in modo permanente.">
+      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+    </form>
+  </div>
+</div>
+
+<div class="details-container">
+  <div class="details-card">
+    <h2>📋 Informazioni Progetto</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Nome Progetto</label>
+        <p><strong>{{ item.nome_progetto }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Cliente</label>
+        <p>Client #{{ item.id_cliente }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Indirizzo Cantiere</label>
+        <p>{{ item.indirizzo_cantiere or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Stato</label>
+        <p>
+          {% if item.stato == 'IN_CORSO' %}
+          <span class="status-indicator">
+            <span class="status-dot attivo"></span>
+            <span class="badge badge-attivo">In Corso</span>
+          </span>
+          {% else %}
+          <span class="status-indicator">
+            <span class="status-dot disattivato"></span>
+            <span class="badge badge-disattivato">Completato</span>
+          </span>
+          {% endif %}
+        </p>
+      </div>
+      {% if item.note %}
+      <div class="detail-item full-width">
+        <label>Note</label>
+        <p>{{ item.note }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if item.ore_totali > 0 or item.costo_totale > 0 %}
+  <div class="details-card">
+    <h2>📊 Riepilogo Progetto</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Ore Totali</label>
+        <p><strong>{{ item.ore_totali|round(2) }} h</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Costo Totale</label>
+        <p><strong>€ {{ item.costo_totale|round(2) }}</strong></p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+

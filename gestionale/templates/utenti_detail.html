@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>⚙️ Dettaglio Utente</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.username }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('utenti') }}" class="btn-secondary">← Torna alla lista</a>
+    <a href="{{ url_for('utenti_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    {% if not is_self %}
+    <form method="post" action="{{ url_for('utenti_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo utente?" data-confirm-second="Seconda conferma: l'utente verra' eliminato in modo permanente.">
+      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="details-container">
+  <div class="details-card">
+    <h2>👤 Informazioni Utente</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Username</label>
+        <p><strong>{{ item.username }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Nome</label>
+        <p>{{ item.nome }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Cognome</label>
+        <p>{{ item.cognome }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Ruolo</label>
+        <p>
+          {% if item.ruolo == 'ADMIN' %}
+          <span class="badge" style="background-color: #fbbf24; color: #92400e;">ADMIN</span>
+          {% else %}
+          <span class="badge">Staff</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="detail-item">
+        <label>Stato</label>
+        <p>
+          {% if item.stato == 'ATTIVO' %}
+          <span class="status-indicator">
+            <span class="status-dot attivo"></span>
+            <span class="badge badge-attivo">Attivo</span>
+          </span>
+          {% else %}
+          <span class="status-indicator">
+            <span class="status-dot disattivato"></span>
+            <span class="badge badge-disattivato">Disattivato</span>
+          </span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+

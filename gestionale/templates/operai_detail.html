@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👷 Dettaglio Operaio</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.nome }} {{ item.cognome }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('operai') }}" class="btn-secondary">← Torna alla lista</a>
+    <a href="{{ url_for('operai_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <form method="post" action="{{ url_for('operai_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo operaio?" data-confirm-second="Seconda conferma: l'operaio verra' eliminato in modo permanente.">
+      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+    </form>
+  </div>
+</div>
+
+<div class="details-container">
+  <div class="details-card">
+    <h2>👤 Informazioni Operaio</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Nome</label>
+        <p><strong>{{ item.nome }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Cognome</label>
+        <p><strong>{{ item.cognome }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Alias</label>
+        <p>{{ item.alias or '-' }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Costo Orario Base</label>
+        <p><strong>€ {{ item.costo_orario_base|round(2) }}/h</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Stato</label>
+        <p>
+          {% if item.stato == 'ATTIVO' %}
+          <span class="status-indicator">
+            <span class="status-dot attivo"></span>
+            <span class="badge badge-attivo">Attivo</span>
+          </span>
+          {% else %}
+          <span class="status-indicator">
+            <span class="status-dot disattivato"></span>
+            <span class="badge badge-disattivato">Disattivato</span>
+          </span>
+          {% endif %}
+        </p>
+      </div>
+      {% if item.note %}
+      <div class="detail-item full-width">
+        <label>Note</label>
+        <p>{{ item.note }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if item.numero_schede > 0 %}
+  <div class="details-card">
+    <h2>📊 Storico Lavoro</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Ore Totali Lavorate</label>
+        <p><strong>{{ item.ore_totali|round(2) }} h</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Ricavo Totale</label>
+        <p><strong>€ {{ item.ricavo_totale|round(2) }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Numero Schede</label>
+        <p><strong>{{ item.numero_schede }}</strong></p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+

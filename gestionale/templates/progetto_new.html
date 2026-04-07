@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>➕ Nuovo Progetto</h1>
+    <p class="subtitle">Aggiungi una nuova commessa/cantiere</p>
+  </div>
+  <a href="{{ url_for('progetti') }}" class="btn-secondary">← Torna alla lista</a>
+</div>
+
+<div class="form-container">
+  <form method="post" action="{{ url_for('progetti_new') }}" class="form-card">
+    <h2>🏗️ Informazioni Progetto</h2>
+
+    <div class="form-group">
+      <label for="nome_progetto">Nome Progetto *</label>
+      <input type="text" id="nome_progetto" name="nome_progetto" placeholder="Es. Ristrutturazione Edificio A" required>
+    </div>
+
+    <div class="form-group">
+      <label for="id_cliente">Cliente *</label>
+      <select id="id_cliente" name="id_cliente" required>
+        <option value="">-- Seleziona Cliente --</option>
+        {% for c in clienti %}<option value="{{ c.id }}">{{ c.ragione_sociale }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="indirizzo_cantiere">Indirizzo Cantiere</label>
+      <input type="text" id="indirizzo_cantiere" name="indirizzo_cantiere" placeholder="Es. Via Roma, 123 - Milano">
+    </div>
+
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea id="note" name="note" placeholder="Note aggiuntive..." rows="4"></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✓ Salva Progetto</button>
+      <a href="{{ url_for('progetti') }}" class="btn-cancel">Annulla</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+

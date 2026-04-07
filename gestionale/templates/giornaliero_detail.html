@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📋 Dettaglio Scheda Giornaliera</h1>
+    <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.data }} | {{ item.progetto_nome or ('Progetto #' ~ item.id_progetto) }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('giornaliero') }}" class="btn-secondary">← Torna alla lista</a>
+    <a href="{{ url_for('giornaliero_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <form method="post" action="{{ url_for('giornaliero_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questa scheda?" data-confirm-second="Seconda conferma: la scheda verra' eliminata in modo permanente.">
+      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+    </form>
+  </div>
+</div>
+
+<div class="details-container">
+  <div class="details-card">
+    <h2>📝 Informazioni Scheda Giornaliera</h2>
+    <div class="details-grid">
+      <div class="detail-item">
+        <label>Data</label>
+        <p><strong>{{ item.data }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Descrizione</label>
+        <p>{{ item.descrizione }}</p>
+      </div>
+      <div class="detail-item">
+        <label>Progetto</label>
+        <p><strong>{{ item.progetto_nome or ('Progetto #' ~ item.id_progetto) }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Ore Totali</label>
+        <p><strong>{{ item.totale_ore|round(2) }} h</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Costo Totale</label>
+        <p><strong>€ {{ item.costo_totale }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Operai</label>
+        <p><strong>{{ item.vociOperai|length }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Materiali</label>
+        <p><strong>{{ item.vociMat|length }}</strong></p>
+      </div>
+      <div class="detail-item">
+        <label>Allegati</label>
+        <p><strong>{{ item.allegati|length }}</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="details-card">
+    <h2>👷 Operai</h2>
+    <form method="post" action="{{ url_for('giornaliero_add_operaio', item_id=item.id) }}" class="search-bar">
+      <select name="id_operaio" class="sort-select" required>
+        <option value="">-- Seleziona operaio --</option>
+        {% for operaio in all_operai %}
+        <option value="{{ operaio.id }}">{{ operaio.cognome }} {{ operaio.nome }}{% if operaio.alias %} ({{ operaio.alias }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <input type="number" name="ore_lavorate" class="search-input" min="0.1" step="0.1" value="8" placeholder="Ore lavorate">
+      <button type="submit" class="btn-primary">+ Aggiungi operaio</button>
+    </form>
+
+    {% if item.vociOperai %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Operaio</th>
+            <th>Ore</th>
+            <th>Costo Orario</th>
+            <th>Totale</th>
+            <th class="col-azioni">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for voce in item.vociOperai %}
+          <tr>
+            <td><strong>{{ voce.nome_completo or ('ID ' ~ voce.id_operaio) }}</strong></td>
+            <td>{{ voce.ore_lavorate|round(2) }}</td>
+            <td>€ {{ voce.costo_orario_snapshot|round(2) }}/h</td>
+            <td>€ {{ voce.getCostoTotale()|round(2) }}</td>
+            <td class="col-azioni">
+              <form method="post" action="{{ url_for('giornaliero_remove_operaio', item_id=item.id, id_operaio=voce.id_operaio) }}" data-double-confirm="true" data-confirm-first="Rimuovere l'operaio dalla scheda?">
+                <button type="submit" class="btn-danger">Rimuovi</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessun operaio assegnato.</p>
+    {% endif %}
+  </div>
+
+  <div class="details-card">
+    <h2>📦 Materiali</h2>
+    <form method="post" action="{{ url_for('giornaliero_add_materiale', item_id=item.id) }}" class="search-bar">
+      <select name="id_materiale" class="sort-select" required>
+        <option value="">-- Seleziona materiale --</option>
+        {% for materiale in all_materiali %}
+        <option value="{{ materiale.id }}">{{ materiale.descrizione }} ({{ materiale.unita_misura }})</option>
+        {% endfor %}
+      </select>
+      <input type="number" name="quantita" class="search-input" min="0.1" step="0.1" value="1" placeholder="Quantità">
+      <button type="submit" class="btn-primary">+ Aggiungi materiale</button>
+    </form>
+
+    {% if item.vociMat %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Materiale</th>
+            <th>Quantità</th>
+            <th>Prezzo Unitario</th>
+            <th>Totale</th>
+            <th class="col-azioni">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for voce in item.vociMat %}
+          <tr>
+            <td><strong>{{ voce.descrizione or ('ID ' ~ voce.id_materiale) }}</strong></td>
+            <td>{{ voce.quantita|round(2) }} {{ voce.unita_misura or '' }}</td>
+            <td>€ {{ voce.prezzo_unitario_snapshot|round(2) }}</td>
+            <td>€ {{ voce.getCostoTotale()|round(2) }}</td>
+            <td class="col-azioni">
+              <form method="post" action="{{ url_for('giornaliero_remove_materiale', item_id=item.id, id_materiale=voce.id_materiale) }}" data-double-confirm="true" data-confirm-first="Rimuovere il materiale dalla scheda?">
+                <button type="submit" class="btn-danger">Rimuovi</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessun materiale inserito.</p>
+    {% endif %}
+  </div>
+
+  <div class="details-card">
+    <h2>📎 Allegati</h2>
+    <form method="post" action="{{ url_for('giornaliero_add_allegato', item_id=item.id) }}" class="search-bar" enctype="multipart/form-data">
+      <input type="file" name="file" class="search-input" required>
+      <button type="submit" class="btn-primary">+ Carica allegato</button>
+    </form>
+
+    {% if item.allegati %}
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Percorso</th>
+            <th class="col-azioni">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for allegato in item.allegati %}
+          <tr>
+            <td><strong>{{ allegato.getNomeFile() }}</strong></td>
+            <td>{{ allegato.path }}</td>
+            <td class="col-azioni">
+              <form method="post" action="{{ url_for('giornaliero_remove_allegato', item_id=item.id, id_allegato=allegato.id) }}" data-double-confirm="true" data-confirm-first="Rimuovere l'allegato dalla scheda?">
+                <button type="submit" class="btn-danger">Rimuovi</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessun allegato caricato.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+

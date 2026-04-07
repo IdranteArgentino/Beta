@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📋 Giornaliero</h1>
+    <p class="subtitle">Matrice giorni x progetti</p>
+  </div>
+  <div class="page-header-actions">
+    <button type="button" class="btn-primary" id="openNewSheetModal" {% if not all_progetti %}disabled title="Crea prima almeno un progetto"{% endif %}>+ Nuova scheda giornaliera</button>
+  </div>
+</div>
+
+<div class="filters-section">
+  <form method="get" class="search-bar">
+    <input type="date" name="start_date" class="search-input" value="{{ start_date_value }}">
+    <input type="date" name="end_date" class="search-input" value="{{ end_date_value }}">
+    <div class="project-picker" id="projectPickerRoot">
+      <button type="button" class="btn-secondary" id="openProjectPicker">Seleziona progetti</button>
+      <div class="project-picker__selected" id="selectedProjects"></div>
+      <div id="projectHiddenInputs">
+        {% for pid in selected_project_ids %}
+        <input type="hidden" name="project_ids" value="{{ pid }}">
+        {% endfor %}
+      </div>
+    </div>
+    <button type="submit" class="btn-search">Applica</button>
+    <a href="{{ url_for('giornaliero') }}" class="btn-cancel">Reset</a>
+  </form>
+</div>
+
+<div class="project-picker-modal" id="projectPickerModal" aria-hidden="true">
+  <div class="project-picker-modal__overlay" id="projectPickerOverlay"></div>
+  <div class="project-picker-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="projectPickerTitle">
+    <div class="project-picker-modal__header">
+      <h3 id="projectPickerTitle">Cerca progetto</h3>
+      <button type="button" class="btn-cancel" id="closeProjectPicker">Chiudi</button>
+    </div>
+    <input
+      type="text"
+      id="projectSearchInput"
+      class="search-input"
+      placeholder="Scrivi per filtrare i progetti..."
+      autocomplete="off"
+    >
+    <ul class="project-picker-modal__list" id="projectPickerList">
+      {% for p in all_progetti %}
+      <li class="project-picker-modal__item" data-project-id="{{ p.id }}" data-project-name="{{ p.nome_progetto | lower }}">
+        <span>{{ p.nome_progetto }}</span>
+        <button type="button" class="btn-search" data-project-add="{{ p.id }}">Aggiungi</button>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="confirm-modal" id="giornalieroNewModal" aria-hidden="true">
+  <div class="confirm-modal__overlay" id="giornalieroNewOverlay"></div>
+  <div class="confirm-modal__dialog giornaliero-new-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="giornalieroNewTitle">
+    <h3 id="giornalieroNewTitle">Nuova scheda giornaliera</h3>
+    <form method="post" action="{{ url_for('giornaliero_new') }}" id="giornalieroNewForm">
+      <div class="form-group">
+        <label for="giornalieroNewDate">Data</label>
+        <input type="date" id="giornalieroNewDate" name="data" required>
+      </div>
+      <div class="form-group">
+        <label for="giornalieroNewProject">Progetto</label>
+        <select id="giornalieroNewProject" name="id_progetto" required>
+          <option value="">-- Seleziona progetto --</option>
+          {% for p in all_progetti %}
+          <option value="{{ p.id }}">{{ p.nome_progetto }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="giornalieroNewDescription">Descrizione</label>
+        <textarea id="giornalieroNewDescription" name="descrizione" rows="3" placeholder="Descrizione opzionale"></textarea>
+      </div>
+      <div class="confirm-modal__actions">
+        <button type="button" class="btn-cancel" id="giornalieroNewCancel">Annulla</button>
+        <button type="submit" class="btn-primary">Crea scheda</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="giornaliero-grid-wrap">
+  <table class="giornaliero-grid">
+    <thead>
+      <tr>
+        <th class="giornaliero-day-header">Giorno</th>
+        {% for p in progetti %}
+        <th class="giornaliero-project-header">{{ p.nome_progetto }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for day in days %}
+      <tr>
+        <td class="giornaliero-day-cell">{{ day.label }}</td>
+        {% for p in progetti %}
+          {% set cell = cell_map.get(day.key, {}).get(p.id) %}
+          <td class="giornaliero-sheet-cell {% if cell %}has-entry{% endif %}">
+            {% if cell %}
+              <a href="{{ url_for('giornaliero_detail', item_id=cell.id) }}" title="Apri scheda {{ cell.id }}">
+                Scheda #{{ cell.id }}{% if cell.count > 1 %} (+{{ cell.count - 1 }}){% endif %}
+              </a>
+            {% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  (function () {
+    const allProjects = [
+      {% for p in all_progetti %}
+      { id: {{ p.id }}, name: {{ p.nome_progetto | tojson }} },
+      {% endfor %}
+    ];
+    const projectMap = new Map(allProjects.map(function (project) { return [project.id, project]; }));
+
+    const root = document.getElementById('projectPickerRoot');
+    const selectedContainer = document.getElementById('selectedProjects');
+    const hiddenInputsContainer = document.getElementById('projectHiddenInputs');
+    const openBtn = document.getElementById('openProjectPicker');
+    const modal = document.getElementById('projectPickerModal');
+    const overlay = document.getElementById('projectPickerOverlay');
+    const closeBtn = document.getElementById('closeProjectPicker');
+    const searchInput = document.getElementById('projectSearchInput');
+    const list = document.getElementById('projectPickerList');
+    const openNewSheetBtn = document.getElementById('openNewSheetModal');
+    const newSheetModal = document.getElementById('giornalieroNewModal');
+    const newSheetOverlay = document.getElementById('giornalieroNewOverlay');
+    const newSheetCancel = document.getElementById('giornalieroNewCancel');
+    const newSheetForm = document.getElementById('giornalieroNewForm');
+    const newSheetDate = document.getElementById('giornalieroNewDate');
+    const newSheetProject = document.getElementById('giornalieroNewProject');
+
+    if (!root || !selectedContainer || !hiddenInputsContainer || !openBtn || !modal || !overlay || !closeBtn || !searchInput || !list) {
+      return;
+    }
+
+    const selectedIds = new Set(
+      Array.from(hiddenInputsContainer.querySelectorAll('input[name="project_ids"]')).map(function (input) {
+        return Number(input.value);
+      })
+    );
+
+    function renderHiddenInputs() {
+      hiddenInputsContainer.innerHTML = '';
+      Array.from(selectedIds).sort(function (a, b) { return a - b; }).forEach(function (id) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'project_ids';
+        input.value = String(id);
+        hiddenInputsContainer.appendChild(input);
+      });
+    }
+
+    function renderSelectedChips() {
+      selectedContainer.innerHTML = '';
+      const ids = Array.from(selectedIds);
+      if (!ids.length) {
+        const empty = document.createElement('span');
+        empty.className = 'project-chip project-chip--empty';
+        empty.textContent = 'Tutti i progetti';
+        selectedContainer.appendChild(empty);
+        return;
+      }
+
+      ids.sort(function (a, b) { return a - b; }).forEach(function (id) {
+        const project = projectMap.get(id);
+        if (!project) {
+          return;
+        }
+        const chip = document.createElement('span');
+        chip.className = 'project-chip';
+
+        const label = document.createElement('span');
+        label.textContent = project.name;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'project-chip__remove';
+        removeBtn.textContent = 'x';
+        removeBtn.setAttribute('aria-label', 'Rimuovi ' + project.name);
+        removeBtn.dataset.projectRemove = String(id);
+
+        chip.appendChild(label);
+        chip.appendChild(removeBtn);
+        selectedContainer.appendChild(chip);
+      });
+    }
+
+    function refreshListState() {
+      list.querySelectorAll('[data-project-add]').forEach(function (button) {
+        const id = Number(button.getAttribute('data-project-add'));
+        const isSelected = selectedIds.has(id);
+        button.disabled = isSelected;
+        button.textContent = isSelected ? 'Selezionato' : 'Aggiungi';
+      });
+    }
+
+    function openModal() {
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      searchInput.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      searchInput.value = '';
+      applySearchFilter('');
+    }
+
+    function applySearchFilter(term) {
+      const normalized = term.trim().toLowerCase();
+      list.querySelectorAll('.project-picker-modal__item').forEach(function (item) {
+        const name = item.getAttribute('data-project-name') || '';
+        item.style.display = !normalized || name.indexOf(normalized) !== -1 ? '' : 'none';
+      });
+    }
+
+    function openNewSheetModal() {
+      if (!newSheetModal || !newSheetForm || !newSheetDate || !newSheetProject) {
+        return;
+      }
+      newSheetForm.reset();
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      newSheetDate.value = now.toISOString().slice(0, 10);
+      const preferredProjectId = selectedIds.size ? Array.from(selectedIds)[0] : (allProjects.length ? allProjects[0].id : null);
+      if (preferredProjectId !== null && preferredProjectId !== undefined) {
+        newSheetProject.value = String(preferredProjectId);
+      }
+      newSheetModal.classList.add('is-open');
+      newSheetModal.setAttribute('aria-hidden', 'false');
+      newSheetDate.focus();
+    }
+
+    function closeNewSheetModal() {
+      if (!newSheetModal || !newSheetForm) {
+        return;
+      }
+      newSheetModal.classList.remove('is-open');
+      newSheetModal.setAttribute('aria-hidden', 'true');
+      newSheetForm.reset();
+    }
+
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+
+    if (openNewSheetBtn && !openNewSheetBtn.disabled) {
+      openNewSheetBtn.addEventListener('click', openNewSheetModal);
+    }
+    if (newSheetOverlay) {
+      newSheetOverlay.addEventListener('click', closeNewSheetModal);
+    }
+    if (newSheetCancel) {
+      newSheetCancel.addEventListener('click', closeNewSheetModal);
+    }
+
+    list.addEventListener('click', function (event) {
+      const addBtn = event.target.closest('[data-project-add]');
+      if (!addBtn) {
+        return;
+      }
+      const id = Number(addBtn.getAttribute('data-project-add'));
+      if (!id || selectedIds.has(id)) {
+        return;
+      }
+      selectedIds.add(id);
+      renderHiddenInputs();
+      renderSelectedChips();
+      refreshListState();
+    });
+
+    selectedContainer.addEventListener('click', function (event) {
+      const removeBtn = event.target.closest('[data-project-remove]');
+      if (!removeBtn) {
+        return;
+      }
+      const id = Number(removeBtn.getAttribute('data-project-remove'));
+      if (!selectedIds.has(id)) {
+        return;
+      }
+      selectedIds.delete(id);
+      renderHiddenInputs();
+      renderSelectedChips();
+      refreshListState();
+    });
+
+    searchInput.addEventListener('input', function (event) {
+      applySearchFilter(event.target.value || '');
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        if (newSheetModal && newSheetModal.classList.contains('is-open')) {
+          closeNewSheetModal();
+        } else if (modal.classList.contains('is-open')) {
+          closeModal();
+        }
+      }
+    });
+
+    renderSelectedChips();
+    refreshListState();
+  })();
+</script>
+
+{% endblock %}
+
