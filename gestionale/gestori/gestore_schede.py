@@ -18,29 +18,32 @@ class GestoreSchede:
     # METODI PUBBLICI UML
     # ==========================================
 
-    def creaScheda(self, id_progetto: int, data: str, descrizione: str) -> SchedaGiornaliera | None:
-        """Crea una nuova scheda giornaliera e restituisce l'oggetto salvato."""
-        try:
-            if not self._verificaProgettoModificabile(id_progetto):
-                return None
+    def creaScheda(self, id_progetto: int, data: str, descrizione: str) -> 'SchedaGiornaliera':
+        """Crea una nuova scheda giornaliera e restituisce l'oggetto salvato. Solleva PermissionError se progetto non modificabile."""
+        if not self._verificaProgettoModificabile(id_progetto):
+            raise PermissionError(f"Il progetto #{id_progetto} non è modificabile (completato o non trovato)")
 
-            conn = self._get_conn()
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO schede_giornaliere (data, descrizione, id_progetto) VALUES (?, ?, ?)",
-                (data, descrizione, id_progetto),
-            )
-            conn.commit()
-            new_id = cur.lastrowid
-            conn.close()
-            return SchedaGiornaliera(new_id, data, descrizione, id_progetto)
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO schede_giornaliere (data, descrizione, id_progetto) VALUES (?, ?, ?)",
+            (data, descrizione, id_progetto),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return SchedaGiornaliera(new_id, data, descrizione, id_progetto)
+
+    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> 'SchedaGiornaliera | None':
+        """Alias compatibile per creare una nuova scheda (non solleva eccezioni)."""
+        try:
+            return self.creaScheda(id_progetto, data, descrizione)
+        except PermissionError as e:
+            print(f"Creazione scheda negata: {e}")
+            return None
         except Exception as e:
             print(f"Errore nella creazione scheda: {e}")
             return None
-
-    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> SchedaGiornaliera | None:
-        """Alias compatibile per creare una nuova scheda."""
-        return self.creaScheda(id_progetto, data, descrizione)
 
     def aggiungiAllegato(self, path: str, id_scheda: int = None) -> None:
         """Aggiunge un allegato a una scheda."""
@@ -90,10 +93,6 @@ class GestoreSchede:
         except Exception as e:
             print(f"Errore nell'assegnazione ore operaio: {e}")
             return None
-
-    def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> None:
-        """Aggiunge una nuova scheda giornaliera a un progetto."""
-        self.creaScheda(id_progetto, data, descrizione)
 
     def aggiungiVoceMateriale(self, id_scheda: int, id_materiale: int) -> None:
         """Aggiunge una voce materiale alla scheda."""
@@ -147,6 +146,111 @@ class GestoreSchede:
     def rimuoviOperaioDaScheda(self, id_scheda: int, id_operaio: int) -> None:
         """Alias compatibile per rimuovere un operaio da una scheda."""
         self.rimuoviVoceOperaio(id_scheda, id_operaio)
+
+    def dashboardData(self) -> dict:
+        """Restituisce i dati per la home dashboard: lavori settimana, ultimi completati, ultimi in corso, costi."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+
+            # Schede della settimana corrente
+            cur.execute("""
+                SELECT s.id, s.data, s.descrizione, s.id_progetto, p.nome_progetto
+                FROM schede_giornaliere s
+                LEFT JOIN progetti p ON s.id_progetto = p.id
+                WHERE s.data >= date('now', '-6 days')
+                ORDER BY s.data DESC, s.id DESC
+                LIMIT 10
+            """)
+            schede_settimana = [
+                {'id': r['id'], 'data': r['data'], 'descrizione': r['descrizione'],
+                 'id_progetto': r['id_progetto'], 'nome_progetto': r['nome_progetto'] or f"Progetto #{r['id_progetto']}"}
+                for r in cur.fetchall()
+            ]
+
+            # Ultimi progetti completati
+            cur.execute("""
+                SELECT id, nome_progetto, indirizzo_cantiere, stato
+                FROM progetti
+                WHERE stato = 'COMPLETATO'
+                ORDER BY id DESC
+                LIMIT 5
+            """)
+            ultimi_completati = [
+                {'id': r['id'], 'nome_progetto': r['nome_progetto'], 'indirizzo_cantiere': r['indirizzo_cantiere']}
+                for r in cur.fetchall()
+            ]
+
+            # Ultimi progetti in corso
+            cur.execute("""
+                SELECT id, nome_progetto, indirizzo_cantiere, stato
+                FROM progetti
+                WHERE stato = 'IN_CORSO'
+                ORDER BY id DESC
+                LIMIT 5
+            """)
+            ultimi_in_corso = [
+                {'id': r['id'], 'nome_progetto': r['nome_progetto'], 'indirizzo_cantiere': r['indirizzo_cantiere']}
+                for r in cur.fetchall()
+            ]
+
+            # Costo totale progetti in corso (subquery separate per evitare prodotto cartesiano)
+            cur.execute("""
+                SELECT
+                    COALESCE((
+                        SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot)
+                        FROM progetti p
+                        JOIN schede_giornaliere s ON s.id_progetto = p.id
+                        JOIN voci_operai vo ON vo.id_scheda = s.id
+                        WHERE p.stato = 'IN_CORSO'
+                    ), 0) +
+                    COALESCE((
+                        SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot)
+                        FROM progetti p
+                        JOIN schede_giornaliere s ON s.id_progetto = p.id
+                        JOIN voci_materiali vm ON vm.id_scheda = s.id
+                        WHERE p.stato = 'IN_CORSO'
+                    ), 0) AS tot
+            """)
+            r = cur.fetchone()
+            costo_in_corso = float(r['tot'] or 0)
+
+            # Costo totale settimana (subquery separate per evitare prodotto cartesiano)
+            cur.execute("""
+                SELECT
+                    COALESCE((
+                        SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_operai vo ON vo.id_scheda = s.id
+                        WHERE s.data >= date('now', '-6 days')
+                    ), 0) AS c_op,
+                    COALESCE((
+                        SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_materiali vm ON vm.id_scheda = s.id
+                        WHERE s.data >= date('now', '-6 days')
+                    ), 0) AS c_mat
+            """)
+            r = cur.fetchone()
+            costo_settimana = float((r['c_op'] or 0) + (r['c_mat'] or 0))
+
+            conn.close()
+            return {
+                'schede_settimana': schede_settimana,
+                'ultimi_completati': ultimi_completati,
+                'ultimi_in_corso': ultimi_in_corso,
+                'costo_in_corso': costo_in_corso,
+                'costo_settimana': costo_settimana,
+            }
+        except Exception as e:
+            print(f"Errore nel recupero dati dashboard: {e}")
+            return {
+                'schede_settimana': [],
+                'ultimi_completati': [],
+                'ultimi_in_corso': [],
+                'costo_in_corso': 0.0,
+                'costo_settimana': 0.0,
+            }
 
     def listaSchede(self) -> list:
         """Restituisce le schede giornaliere ordinate per data desc."""
@@ -207,7 +311,7 @@ class GestoreSchede:
             return 0.0
 
     def dettaglioScheda(self, id_scheda: int) -> dict:
-        """Restituisce i dettagli completi di una scheda."""
+        """Restituisce i dettagli completi di una scheda, con nomi operai/materiali e nome progetto arricchiti."""
         try:
             scheda = self._trova_scheda(id_scheda)
             if not scheda:
@@ -217,11 +321,40 @@ class GestoreSchede:
             scheda.voci_materiali = self._get_voci_materiali(id_scheda)
             scheda.allegati = self._get_allegati(id_scheda)
 
+            # Arricchisce le voci operaio con i dati anagrafici
+            for voce in scheda.voci_operai:
+                op = self._trova_operaio(voce.id_operaio)
+                if op:
+                    voce.nome = op['nome']
+                    voce.cognome = op['cognome']
+                    voce.alias = op['alias'] or ''
+                    voce.nome_completo = f"{op['nome']} {op['cognome']}".strip()
+                else:
+                    voce.nome = f"ID {voce.id_operaio}"
+                    voce.cognome = ''
+                    voce.alias = ''
+                    voce.nome_completo = f"ID {voce.id_operaio}"
+
+            # Arricchisce le voci materiale con descrizione e unità di misura
+            for voce in scheda.voci_materiali:
+                mat = self._trova_materiale(voce.id_materiale)
+                if mat:
+                    voce.descrizione = mat['descrizione']
+                    voce.unita_misura = mat['unita_misura'] or ''
+                else:
+                    voce.descrizione = f"ID {voce.id_materiale}"
+                    voce.unita_misura = ''
+
+            # Risolve il nome del progetto
+            progetto = self._trova_progetto(scheda.id_progetto)
+            progetto_nome = progetto['nome_progetto'] if progetto else f"Progetto #{scheda.id_progetto}"
+
             return {
                 "id": scheda.id,
                 "data": scheda.data,
                 "descrizione": scheda.descrizione,
                 "id_progetto": scheda.id_progetto,
+                "progetto_nome": progetto_nome,
                 "scheda": scheda,
                 "vociOperai": scheda.voci_operai,
                 "vociMat": scheda.voci_materiali,

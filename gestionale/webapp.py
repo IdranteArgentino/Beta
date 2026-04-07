@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from functools import wraps
 from uuid import uuid4
 
-from flask import Flask, redirect, render_template, request, session, url_for, abort
+from flask import Flask, flash, redirect, render_template, request, session, url_for, abort
 from werkzeug.utils import secure_filename
 
 from .azienda import Azienda
@@ -72,18 +72,22 @@ def create_app(db_path=None):
     @app.route("/")
     @login_required
     def home():
-        return render_template("home.html")
+        dashboard = gestori["schede"].dashboardData()
+        return render_template("home.html", dashboard=dashboard)
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-            utente = gestori["utenti"].login(username, password)
-            if utente and utente.stato == StatoEntita.ATTIVO:
-                session["username"] = utente.username
-                return redirect(url_for("home"))
-            return render_template("login.html", error="Credenziali non valide o utente disattivato")
+            try:
+                utente = gestori["utenti"].login(username, password)
+                if utente and utente.stato == StatoEntita.ATTIVO:
+                    session["username"] = utente.username
+                    return redirect(url_for("home"))
+                return render_template("login.html", error="Credenziali non valide o utente disattivato")
+            except ValueError:
+                return render_template("login.html", error="Credenziali non valide o utente disattivato")
         return render_template("login.html")
 
     @app.route("/logout")
@@ -107,13 +111,11 @@ def create_app(db_path=None):
         if request.method == "POST":
             gestori["clienti"].aggiungiCliente(
                 request.form.get("ragione_sociale", ""),
-                request.form.get("nome", ""),
-                request.form.get("cognome", ""),
-                request.form.get("indirizzo", ""),
-                request.form.get("telefono", ""),
-                "",
-                "",
-                request.form.get("note", ""),
+                indirizzo=request.form.get("indirizzo", ""),
+                telefono=request.form.get("telefono", ""),
+                note=request.form.get("note", ""),
+                nome=request.form.get("nome", ""),
+                cognome=request.form.get("cognome", ""),
             )
             return redirect(url_for("clienti"))
         return render_template("clienti_new.html")
@@ -165,13 +167,16 @@ def create_app(db_path=None):
     @login_required
     def operai_new():
         if request.method == "POST":
-            gestori["operai"].aggiungiOperaio(
-                request.form.get("nome", ""),
-                request.form.get("cognome", ""),
-                request.form.get("alias", ""),
-                request.form.get("note", ""),
-                float(request.form.get("costo_orario_base", "0") or 0),
-            )
+            try:
+                gestori["operai"].aggiungiOperaio(
+                    request.form.get("nome", ""),
+                    request.form.get("cognome", ""),
+                    float(request.form.get("costo_orario_base", "0") or 0),
+                    alias=request.form.get("alias", ""),
+                    note=request.form.get("note", ""),
+                )
+            except ValueError:
+                pass
             return redirect(url_for("operai"))
         return render_template("operaio_new.html")
 
@@ -222,13 +227,15 @@ def create_app(db_path=None):
     @login_required
     def materiali_new():
         if request.method == "POST":
-            gestori["materiali"].aggiungiMateriale(
-                request.form.get("descrizione", ""),
-                request.form.get("unita_misura", "pz"),
-                float(request.form.get("prezzo_unitario", "0") or 0),
-                request.form.get("note", ""),
-                request.form.get("unita_misura", "pz"),
-            )
+            try:
+                gestori["materiali"].aggiungiMateriale(
+                    request.form.get("descrizione", ""),
+                    request.form.get("unita_misura", "pz"),
+                    float(request.form.get("prezzo_unitario", "0") or 0),
+                    request.form.get("note", ""),
+                )
+            except ValueError:
+                pass
             return redirect(url_for("materiali"))
         return render_template("materiale_new.html")
 
@@ -279,15 +286,36 @@ def create_app(db_path=None):
     @login_required
     def progetti_new():
         if request.method == "POST":
-            gestori["progetti"].aggiungiProgetto(
-                request.form.get("nome_progetto", ""),
-                request.form.get("id_cliente", "0"),
-                request.form.get("indirizzo_cantiere", ""),
-                request.form.get("note", ""),
-            )
+            id_cliente_raw = request.form.get("id_cliente", "0")
+            from_cliente = request.form.get("from_cliente")
+            try:
+                gestori["progetti"].creaProgetto(
+                    request.form.get("nome_progetto", ""),
+                    int(id_cliente_raw) if id_cliente_raw else 0,
+                    request.form.get("indirizzo_cantiere", ""),
+                    request.form.get("note", ""),
+                )
+            except ValueError as e:
+                clienti = gestori["clienti"].listaClienti()
+                preselect_cliente = from_cliente or id_cliente_raw or None
+                return render_template(
+                    "progetto_new.html",
+                    clienti=clienti,
+                    preselect_cliente=preselect_cliente,
+                    error=str(e),
+                )
+            # Redirect al cliente se pre-selezionato
+            if from_cliente:
+                try:
+                    from_cliente_id = int(from_cliente)
+                except (TypeError, ValueError):
+                    from_cliente_id = None
+                if from_cliente_id is not None:
+                    return redirect(url_for("clienti_detail", item_id=from_cliente_id))
             return redirect(url_for("progetti"))
         clienti = gestori["clienti"].listaClienti()
-        return render_template("progetto_new.html", clienti=clienti)
+        preselect_cliente = request.args.get("id_cliente")
+        return render_template("progetto_new.html", clienti=clienti, preselect_cliente=preselect_cliente)
 
     @app.route("/progetti/<int:item_id>")
     @login_required
@@ -296,7 +324,9 @@ def create_app(db_path=None):
         if not item:
             abort(404)
         clienti = gestori["clienti"].listaClienti()
-        return render_template("progetti_detail.html", item=item, clienti=clienti)
+        clienti_by_id = {c.id: c for c in clienti}
+        cliente = clienti_by_id.get(item.get("id_cliente"))
+        return render_template("progetti_detail.html", item=item, clienti=clienti, cliente=cliente)
 
     @app.route("/progetti/<int:item_id>/edit", methods=["GET", "POST"])
     @login_required
@@ -404,24 +434,6 @@ def create_app(db_path=None):
         all_operai = gestori["operai"].listaOperai()
         all_materiali = gestori["materiali"].listaMateriali()
         all_progetti = gestori["progetti"].listaProgetti()
-        operai_by_id = {o.id: o for o in all_operai}
-        materiali_by_id = {m.id: m for m in all_materiali}
-        progetti_by_id = {p.id: p for p in all_progetti}
-
-        progetto = progetti_by_id.get(item.get("id_progetto"))
-        item["progetto_nome"] = progetto.nome_progetto if progetto else f"Progetto #{item.get('id_progetto')}"
-
-        for voce in item.get("vociOperai", []):
-            operaio = operai_by_id.get(voce.id_operaio)
-            voce.nome = operaio.nome if operaio else f"ID {voce.id_operaio}"
-            voce.cognome = operaio.cognome if operaio else ""
-            voce.alias = operaio.alias if operaio else ""
-            voce.nome_completo = operaio.getNomeCompleto() if operaio else f"ID {voce.id_operaio}"
-
-        for voce in item.get("vociMat", []):
-            materiale = materiali_by_id.get(voce.id_materiale)
-            voce.descrizione = materiale.descrizione if materiale else f"ID {voce.id_materiale}"
-            voce.unita_misura = materiale.unita_misura if materiale else ""
 
         return item, all_operai, all_materiali, all_progetti
 
@@ -605,12 +617,7 @@ def create_app(db_path=None):
         if detail and current and detail.get("username") == current.username:
             return redirect(url_for("utenti_detail", item_id=item_id))
         if detail:
-            # Elimina per username direttamente su DB.
-            conn = azienda._get_conn()
-            cur = conn.cursor()
-            cur.execute("DELETE FROM utenti WHERE username = ?", (detail["username"],))
-            conn.commit()
-            conn.close()
+            gestori["utenti"].eliminaUtente(detail["username"])
         return redirect(url_for("utenti"))
 
     return app

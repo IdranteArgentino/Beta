@@ -1,6 +1,6 @@
 import sqlite3
-import hashlib
 import os
+from werkzeug.security import generate_password_hash
 
 def create_connection(db_file="data/gestionale.db"):
     """Crea una connessione al database SQLite."""
@@ -178,18 +178,12 @@ def inizializza_db(db_file="data/gestionale.db"):
     # Admin di default
     cursor.execute("SELECT id FROM utenti WHERE username = ?", ('admin',))
     res = cursor.fetchone()
-    pwd_hash = hashlib.sha256("admin".encode('utf-8')).hexdigest()
     if res is None:
+        pwd_hash = generate_password_hash("admin")
         cursor.execute("""
             INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo)
             VALUES (?, ?, ?, ?, ?, ?)
         """, ('admin', 'Amministratore', 'Sistema', pwd_hash, 'ATTIVO', 'ADMIN'))
-    else:
-        cursor.execute("""
-            UPDATE utenti
-            SET nome = ?, cognome = ?, password_hash = ?, stato = ?, ruolo = ?
-            WHERE username = ?
-        """, ('Amministratore', 'Sistema', pwd_hash, 'ATTIVO', 'ADMIN', 'admin'))
 
     conn.commit()
     conn.close()

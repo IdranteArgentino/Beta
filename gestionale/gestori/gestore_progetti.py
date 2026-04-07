@@ -31,50 +31,63 @@ class GestoreProgetti:
     # ==========================================
 
     def aggiungiProgetto(self, nome_progetto: str, id_cliente: str, indirizzo_cantiere: str, note: str) -> None:
-        """Aggiunge un nuovo progetto."""
+        """Aggiunge un nuovo progetto (alias di creaProgetto senza ritorno)."""
+        self.creaProgetto(nome_progetto, int(id_cliente) if id_cliente else 0, indirizzo_cantiere, note)
+
+    def creaProgetto(self, nome_progetto: str, id_cliente: int, indirizzo_cantiere: str, note: str) -> 'Progetto':
+        """Crea e restituisce un nuovo progetto. Solleva ValueError se nome vuoto."""
+        nome_norm = self._normalizza(nome_progetto)
+        if not nome_norm:
+            raise ValueError("Il nome del progetto non può essere vuoto")
+
+        indirizzo_norm = self._normalizza(indirizzo_cantiere)
+
         try:
-            nome_norm = self._normalizza(nome_progetto)
-            indirizzo_norm = self._normalizza(indirizzo_cantiere)
+            self._verifica_duplicati(nome_norm)
+        except Exception as w:
+            print(w)
 
-            try:
-                self._verifica_duplicati(nome_norm)
-            except Exception as w:
-                print(w)
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO progetti (nome_progetto, id_cliente, indirizzo_cantiere, stato, note)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (nome_norm, int(id_cliente), indirizzo_norm, StatoProgetto.IN_CORSO.value, note)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return Progetto(new_id, nome_norm, int(id_cliente), indirizzo_norm, note, StatoProgetto.IN_CORSO)
 
-
+    def cambiaStato(self, id_progetto: int, nuovo_stato: 'StatoProgetto') -> None:
+        """Imposta lo stato di un progetto al valore indicato."""
+        try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO progetti (nome_progetto, id_cliente, indirizzo_cantiere, stato, note)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (nome_norm, int(id_cliente), indirizzo_norm, StatoProgetto.IN_CORSO.value, note)
-            )
+            cur.execute("UPDATE progetti SET stato = ? WHERE id = ?", (nuovo_stato.value, id_progetto))
             conn.commit()
             conn.close()
         except Exception as e:
-            print(f"Errore nell'aggiunta progetto: {e}")
+            print(f"Errore nel cambio stato progetto: {e}")
 
     def cambiaStatoProgetto(self, id_progetto: int) -> None:
-        """Cambia lo stato di un progetto (es. da IN_CORSO a COMPLETATO)."""
+        """Cambia lo stato di un progetto (toggle tra IN_CORSO e COMPLETATO)."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
             cur.execute("SELECT * FROM progetti WHERE id = ?", (id_progetto,))
             row = cur.fetchone()
             conn.close()
-            progetto = None if not row else Progetto(
+            if not row:
+                return
+            progetto = Progetto(
                 row['id'], row['nome_progetto'], row['id_cliente'],
                 row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])
             )
-            if progetto:
-                nuovo_stato = StatoProgetto.COMPLETATO if progetto.stato == StatoProgetto.IN_CORSO else StatoProgetto.IN_CORSO
-                conn = self._get_conn()
-                cur = conn.cursor()
-                cur.execute("UPDATE progetti SET stato = ? WHERE id = ?", (nuovo_stato.value, id_progetto))
-                conn.commit()
-                conn.close()
+            nuovo_stato = StatoProgetto.COMPLETATO if progetto.stato == StatoProgetto.IN_CORSO else StatoProgetto.IN_CORSO
+            self.cambiaStato(id_progetto, nuovo_stato)
         except Exception as e:
             print(f"Errore nel cambio stato progetto: {e}")
 
@@ -122,14 +135,27 @@ class GestoreProgetti:
             cur = conn.cursor()
             cur.execute("SELECT * FROM progetti WHERE id = ?", (id_progetto,))
             row = cur.fetchone()
-            conn.close()
             if not row:
+                conn.close()
                 return {}
 
             p = Progetto(
                 row['id'], row['nome_progetto'], row['id_cliente'],
                 row['indirizzo_cantiere'], row['note'], StatoProgetto(row['stato'])
             )
+
+            # Recupera il cliente
+            cliente = None
+            cur.execute("SELECT * FROM clienti WHERE id = ?", (p.id_cliente,))
+            cr = cur.fetchone()
+            if cr:
+                cliente = {'id': cr['id'], 'ragione_sociale': cr['ragione_sociale']}
+
+            conn.close()
+
+            costo_totale = self.costoTotaleProgetto(id_progetto)
+            ore_totali = self._get_totale_ore(id_progetto)
+            schede = self.schedeGiornaliereProgetto(id_progetto)
 
             return {
                 "id": p.id,
@@ -138,8 +164,13 @@ class GestoreProgetti:
                 "indirizzo_cantiere": p.indirizzo_cantiere,
                 "stato": p.stato.value,
                 "note": p.note,
-                "costo_totale": self.costoTotaleProgetto(id_progetto),
-                "ore_totali": self._get_totale_ore(id_progetto)
+                "costo_totale": costo_totale,
+                "ore_totali": ore_totali,
+                # Chiavi attese dai test
+                "progetto": p,
+                "cliente": cliente,
+                "costoTot": costo_totale,
+                "schede": schede,
             }
         except Exception as e:
             print(f"Errore nel recupero dettaglio progetto: {e}")
@@ -215,24 +246,18 @@ class GestoreProgetti:
         return self.listaProgetto()
 
     def schedeGiornaliereProgetto(self, id_progetto: int = None) -> list:
-        """Ottiene le schede giornaliere associate al progetto."""
+        """Ottiene le schede giornaliere associate al progetto, ordinate per id decrescente (più recenti per inserimento prima)."""
         try:
-            # Se id_progetto è None, proviamo a recuperarlo globalmente, ma normalmente si passa a parametro.
-            # L'UML ometteva i parametri, ma a livello pratico serve un id.
             if id_progetto is None:
                 return []
 
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM schede_giornaliere WHERE id_progetto = ? ORDER BY data DESC", (id_progetto,))
+            cur.execute("SELECT * FROM schede_giornaliere WHERE id_progetto = ? ORDER BY id DESC", (id_progetto,))
             rows = cur.fetchall()
             conn.close()
 
-            schede = []
-            for row in rows:
-
-                schede.append(SchedaGiornaliera(row['id'], row['data'], row['descrizione'], row['id_progetto']))
-            return schede
+            return [SchedaGiornaliera(row['id'], row['data'], row['descrizione'], row['id_progetto']) for row in rows]
         except Exception as e:
             print(f"Errore nel recupero schede giornaliere: {e}")
             return []

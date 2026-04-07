@@ -65,7 +65,10 @@
 
   {% if item.numero_progetti > 0 %}
   <div class="details-card">
-    <h2>🏗️ Progetti Associati ({{ item.numero_progetti }})</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+      <h2 style="margin:0;">🏗️ Progetti Associati ({{ item.numero_progetti }})</h2>
+      <a href="{{ url_for('progetti_new', id_cliente=item.id) }}" class="btn-primary">+ Nuovo Progetto</a>
+    </div>
     <ul class="projects-list">
       {% for p in item.progetti %}
         <li><a href="{{ url_for('progetti_detail', item_id=p.id) }}">{{ p.nome }}</a></li>
@@ -73,8 +76,11 @@
     </ul>
   </div>
   {% else %}
-  <div class="empty-info">
-    <p>📌 Nessun progetto associato a questo cliente</p>
+  <div class="details-card">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <p style="margin:0;">📌 Nessun progetto associato a questo cliente</p>
+      <a href="{{ url_for('progetti_new', id_cliente=item.id) }}" class="btn-primary">+ Nuovo Progetto</a>
+    </div>
   </div>
   {% endif %}
 </div>

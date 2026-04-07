@@ -30,22 +30,22 @@ class GestoreOperai:
     # METODI PUBBLICI
     # ==========================================
 
-    def aggiungiOperaio(self, nome: str, cognome: str, alias: str,
-                        note: str, costo_orario_base: int) -> None:
-        """Aggiunge un nuovo operaio."""
+    def aggiungiOperaio(self, nome: str, cognome: str, costo_orario_base: float,
+                        alias: str = "", note: str = "") -> dict:
+        """Aggiunge un nuovo operaio. Restituisce {'operaio': Operaio, 'warning': str}. Solleva ValueError se costo invalido."""
+        warning = ""
         try:
             nome_norm = self._normalizza(nome)
             cognome_norm = self._normalizza(cognome)
 
             if not self._validoCostoOrario(float(costo_orario_base)):
-                print("Costo orario non valido")
-                return
+                raise ValueError(f"Costo orario non valido: {costo_orario_base}")
 
             try:
                 self._verifica_duplicati(nome_norm, cognome_norm)
             except Exception as w:
+                warning = str(w)
                 print(w)
-
 
             conn = self._get_conn()
             cur = conn.cursor()
@@ -57,9 +57,16 @@ class GestoreOperai:
                 (nome_norm, cognome_norm, alias, float(costo_orario_base), StatoEntita.ATTIVO.value, note)
             )
             conn.commit()
+            new_id = cur.lastrowid
             conn.close()
+            operaio = Operaio(new_id, nome_norm, cognome_norm, alias,
+                              float(costo_orario_base), StatoEntita.ATTIVO, note)
+            return {"operaio": operaio, "warning": warning}
+        except ValueError:
+            raise
         except Exception as e:
             print(f"Errore nell'aggiunta operaio: {e}")
+            return {"operaio": None, "warning": warning}
 
     def cercaOperaio(self, termine_ricerca: str) -> list:
         """Cerca operai per id, nome, cognome, nome completo o alias."""
@@ -129,6 +136,7 @@ class GestoreOperai:
 
             storico = self._get_storico_ore(id_operaio)
             ore_per_progetto = self._get_ore_per_progetto(id_operaio)
+            storico_voci = self.storicoVociOperaio(id_operaio)
 
             return {
                 'id': operaio.id,
@@ -141,46 +149,56 @@ class GestoreOperai:
                 'ore_totali': storico['ore_totali'],
                 'ricavo_totale': storico['ricavo_totale'],
                 'numero_schede': storico['numero_schede'],
-                'ore_per_progetto': ore_per_progetto
+                'ore_per_progetto': ore_per_progetto,
+                'storico_voci': storico_voci,
             }
         except Exception as e:
             print(f"Errore nel recupero dettaglio operaio: {e}")
             return {}
 
-    def modificaOperaio(self, id_operaio: int, nome: str = None, cognome: str = None, 
-                        alias: str = None, costo_orario_base: float = None, 
+    def modificaOperaio(self, id_operaio: int, updates: dict = None, nome: str = None,
+                        cognome: str = None, alias: str = None, costo_orario_base: float = None,
                         note: str = None, stato: StatoEntita = None) -> None:
-        """Modifica i dati di un operaio."""
+        """Modifica i dati di un operaio. Accetta dict come secondo parametro o kwargs."""
         try:
+            if updates and isinstance(updates, dict):
+                nome = updates.get("nome", nome)
+                cognome = updates.get("cognome", cognome)
+                alias = updates.get("alias", alias)
+                costo_orario_base = updates.get("costo_orario_base", costo_orario_base)
+                note = updates.get("note", note)
+                if "stato" in updates:
+                    stato = StatoEntita(updates["stato"]) if isinstance(updates["stato"], str) else updates["stato"]
+
             conn = self._get_conn()
             cur = conn.cursor()
-            updates = []
+            update_parts = []
             params = []
 
             if nome is not None:
-                updates.append("nome = ?")
+                update_parts.append("nome = ?")
                 params.append(self._normalizza(nome))
             if cognome is not None:
-                updates.append("cognome = ?")
+                update_parts.append("cognome = ?")
                 params.append(self._normalizza(cognome))
             if alias is not None:
-                updates.append("alias = ?")
+                update_parts.append("alias = ?")
                 params.append(alias)
             if costo_orario_base is not None:
                 if not self._validoCostoOrario(float(costo_orario_base)):
                     print("Costo orario non valido per la modifica")
                 else:
-                    updates.append("costo_orario_base = ?")
+                    update_parts.append("costo_orario_base = ?")
                     params.append(float(costo_orario_base))
             if note is not None:
-                updates.append("note = ?")
+                update_parts.append("note = ?")
                 params.append(note)
             if stato is not None:
-                updates.append("stato = ?")
+                update_parts.append("stato = ?")
                 params.append(stato.value)
 
-            if updates:
-                query = f"UPDATE operai SET {', '.join(updates)} WHERE id = ?"
+            if update_parts:
+                query = f"UPDATE operai SET {', '.join(update_parts)} WHERE id = ?"
                 params.append(id_operaio)
                 cur.execute(query, params)
                 conn.commit()
@@ -200,7 +218,7 @@ class GestoreOperai:
             print(f"Errore nell'eliminazione operaio: {e}")
 
     def storicoOreOperaio(self, id_operaio: int) -> list:
-        """Ottiene lo storico delle schede giornaliere di un operaio."""
+        """Ottiene lo storico delle schede giornaliere di un operaio (ordinate per data desc, id desc)."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
@@ -209,7 +227,7 @@ class GestoreOperai:
                 FROM schede_giornaliere s
                 JOIN voci_operai v ON s.id = v.id_scheda
                 WHERE v.id_operaio = ?
-                ORDER BY s.data DESC
+                ORDER BY s.data DESC, s.id DESC
             """, (id_operaio,))
             rows = cur.fetchall()
             conn.close()
@@ -222,6 +240,40 @@ class GestoreOperai:
             return schede
         except Exception as e:
             print(f"Errore nel recupero storico ore: {e}")
+            return []
+
+    def storicoVociOperaio(self, id_operaio: int) -> list:
+        """Storico voci con dati arricchiti (data, ore, costo, nome progetto, id scheda) ordinati per data desc."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT s.id as scheda_id, s.data, s.descrizione, s.id_progetto,
+                       p.nome_progetto,
+                       v.ore_lavorate, v.costo_orario_snapshot
+                FROM voci_operai v
+                JOIN schede_giornaliere s ON v.id_scheda = s.id
+                LEFT JOIN progetti p ON s.id_progetto = p.id
+                WHERE v.id_operaio = ?
+                ORDER BY s.data DESC, s.id DESC
+            """, (id_operaio,))
+            rows = cur.fetchall()
+            conn.close()
+            return [
+                {
+                    'id_scheda': row['scheda_id'],
+                    'data': row['data'],
+                    'descrizione': row['descrizione'],
+                    'id_progetto': row['id_progetto'],
+                    'nome_progetto': row['nome_progetto'] or f"Progetto #{row['id_progetto']}",
+                    'ore_lavorate': row['ore_lavorate'],
+                    'costo_orario_snapshot': row['costo_orario_snapshot'],
+                    'costo_totale': row['ore_lavorate'] * row['costo_orario_snapshot'],
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            print(f"Errore nel recupero storico voci operaio: {e}")
             return []
 
     def totaleOrePerPeriodoTempo(self, id_operaio: int) -> int:

@@ -1,7 +1,7 @@
 """Gestore per operazioni di modifica e operazioni complesse su utenti."""
 from ..database import create_connection
 from ..models import Utente, StatoEntita, RuoloUtente
-import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class GestoreUtenti:
@@ -38,19 +38,19 @@ class GestoreUtenti:
     # ==========================================
 
     def login(self, username: str, password: str) -> Utente:
-        """Autentica un utente con username e password."""
-        try:
-            utente = self._trova_utente(username)
-            if utente and self.verificaPassword(password, utente.password):
-                return utente
-            return None
-        except Exception as e:
-            print(f"Errore nel login: {e}")
-            return None
+        """Autentica un utente con username e password. Solleva ValueError su fallimento."""
+        utente = self._trova_utente(username)
+        if not utente:
+            raise ValueError(f"Utente '{username}' non trovato")
+        if not self._verificaPassword(password, utente.password):
+            raise ValueError("Password non corretta")
+        if utente.stato != StatoEntita.ATTIVO:
+            raise ValueError("Utente disattivato")
+        return utente
 
     def aggiungiUtente(self, username: str, nome: str, cognome: str,
                        ruolo: RuoloUtente, utente_creatore: Utente) -> None:
-        """Aggiunge un nuovo utente al sistema."""
+        """Aggiunge un nuovo utente al sistema (richiede admin)."""
         try:
             if getattr(utente_creatore, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori possono aggiungere utenti")
@@ -59,17 +59,14 @@ class GestoreUtenti:
             nome_norm = self._normalizza(nome)
             cognome_norm = self._normalizza(cognome)
 
-            # Utilizziamo una password di default (es. username) da far cambiare
-            if not self.validaPassword(username):
+            if not self._validaPassword(username):
                 print("Password default (username) non valida")
                 return
 
-            password_hash = self.hashPassword(username)
+            password_hash = self._hashPassword(username)
             if ruolo == RuoloUtente.ADMIN:
-
                 nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.ADMIN)
             else:
-
                 nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.STAFF)
 
             conn = self._get_conn()
@@ -94,7 +91,7 @@ class GestoreUtenti:
                              password_nuova: str, password_conferma: str) -> None:
         """Cambia la password di un utente dopo verifica della vecchia password."""
         try:
-            if not self.verificaPassword(password_vecchia, utente.password):
+            if not self._verificaPassword(password_vecchia, utente.password):
                 print("Password vecchia non corretta")
                 return
 
@@ -102,24 +99,28 @@ class GestoreUtenti:
                 print("Le password non corrispondono")
                 return
 
-            if not self.validaPassword(password_nuova):
+            if not self._validaPassword(password_nuova):
                 print("Nuova password non valida")
                 return
 
-            password_hash = self.hashPassword(password_nuova)
+            password_hash = self._hashPassword(password_nuova)
             self.modificaUtente(utente.username, password_hash=password_hash)
         except Exception as e:
             print(f"Errore nel cambio password: {e}")
 
-    def resetForzatoPassword(self, username: str, utente_admin: Utente) -> None:
-        """Reset forzato della password da parte di un amministratore."""
+    def modificaPassword(self, utente: Utente, password_vecchia: str,
+                         password_nuova: str, password_conferma: str) -> None:
+        """Alias di cambiaPasswordUtente per compatibilità test."""
+        self.cambiaPasswordUtente(utente, password_vecchia, password_nuova, password_conferma)
+
+    def resetForzatoPassword(self, username: str, utente_admin: Utente = None) -> None:
+        """Reset forzato della password (admin) oppure reset senza controlli."""
         try:
-            # Controlla che l'utente sia admin
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            if utente_admin is not None and getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori possono fare il reset")
                 return
 
-            password_hash = self.hashPassword(username)
+            password_hash = self._hashPassword("cambiami123")
             self.modificaUtente(username, password_hash=password_hash)
         except Exception as e:
             print(f"Errore nel reset password: {e}")
@@ -153,10 +154,10 @@ class GestoreUtenti:
             print(f"Errore nella ricerca utente: {e}")
             return []
 
-    def listaUtenti(self, utente_richiedente: Utente) -> list:
-        """Restituisce la lista di tutti gli utenti."""
+    def listaUtenti(self, utente_richiedente: Utente = None) -> list:
+        """Restituisce la lista di tutti gli utenti (solo admin se utente_richiedente specificato)."""
         try:
-            if getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
+            if utente_richiedente is not None and getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori")
                 return []
             conn = self._get_conn()
@@ -199,26 +200,29 @@ class GestoreUtenti:
             return {}
 
     def revocaUtente(self, username: str, utente_admin: Utente) -> None:
-        """Revoca un utente (lo disattiva)."""
-        try:
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
-                print("Permesso negato: solo amministratori")
-                return
-
-            self.modificaUtente(username, stato=StatoEntita.DISATTIVATO)
-        except Exception as e:
-            print(f"Errore nella revoca utente: {e}")
+        """Revoca un utente (lo disattiva). Solleva PermissionError se non admin, ValueError se self-revoke."""
+        if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono revocare utenti")
+        if getattr(utente_admin, 'username', None) == username:
+            raise ValueError("Non è possibile revocare se stessi")
+        self.modificaUtente(username, stato=StatoEntita.DISATTIVATO)
 
     def riattivaUtente(self, username: str, utente_admin: Utente) -> None:
-        """Riattiva un utente."""
-        try:
-            if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
-                print("Permesso negato: solo amministratori")
-                return
+        """Riattiva un utente. Solleva PermissionError se non admin."""
+        if getattr(utente_admin, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono riattivare utenti")
+        self.modificaUtente(username, stato=StatoEntita.ATTIVO)
 
-            self.modificaUtente(username, stato=StatoEntita.ATTIVO)
+    def eliminaUtente(self, username: str) -> None:
+        """Elimina definitivamente un utente dal sistema."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM utenti WHERE username = ?", (username,))
+            conn.commit()
+            conn.close()
         except Exception as e:
-            print(f"Errore nella riattivazione utente: {e}")
+            print(f"Errore nell'eliminazione utente: {e}")
 
     def modificaUtente(self, username: str, nome: str = None, cognome: str = None,
                  password_hash: str = None, stato: StatoEntita = None,
@@ -272,23 +276,26 @@ class GestoreUtenti:
     # METODI PRIVATI
     # ==========================================
 
-    def hashPassword(self, password: str) -> str:
-        """Genera l'hash della password."""
-        try:
-            return hashlib.sha256(password.encode()).hexdigest()
-        except Exception as e:
-            print(f"Errore nell'hash della password: {e}")
-            return ""
+    def _hashPassword(self, password: str) -> str:
+        """Genera l'hash sicuro della password usando werkzeug (pbkdf2)."""
+        return generate_password_hash(password)
 
-    def verificaPassword(self, password: str, password_hash: str) -> bool:
-        """Verifica se la password corrisponde all'hash."""
+    def _verificaPassword(self, password: str, password_hash: str) -> bool:
+        """Verifica se la password corrisponde all'hash.
+        Supporta sia hash werkzeug (pbkdf2) che hash SHA256 legacy (migrazione trasparente)."""
         try:
-            return self.hashPassword(password) == password_hash
-        except Exception as e:
-            print(f"Errore nella verifica password: {e}")
+            # Prova prima con werkzeug (hash moderno)
+            if check_password_hash(password_hash, password):
+                return True
+            # Fallback: hash SHA256 legacy (64 caratteri hex)
+            if len(password_hash) == 64:
+                import hashlib
+                return hashlib.sha256(password.encode()).hexdigest() == password_hash
+            return False
+        except Exception:
             return False
 
-    def validaPassword(self, password: str) -> bool:
+    def _validaPassword(self, password: str) -> bool:
         """Valida la password (lunghezza minima, caratteri speciali, ecc)."""
         try:
             # Minimo 6 caratteri

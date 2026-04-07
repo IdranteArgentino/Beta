@@ -12,6 +12,14 @@
   <form method="post" action="{{ url_for('progetti_new') }}" class="form-card">
     <h2>🏗️ Informazioni Progetto</h2>
 
+    {% if error %}
+    <div class="error">⚠️ {{ error }}</div>
+    {% endif %}
+
+    {% if preselect_cliente %}
+    <input type="hidden" name="from_cliente" value="{{ preselect_cliente }}">
+    {% endif %}
+
     <div class="form-group">
       <label for="nome_progetto">Nome Progetto *</label>
       <input type="text" id="nome_progetto" name="nome_progetto" placeholder="Es. Ristrutturazione Edificio A" required>
@@ -21,7 +29,9 @@
       <label for="id_cliente">Cliente *</label>
       <select id="id_cliente" name="id_cliente" required>
         <option value="">-- Seleziona Cliente --</option>
-        {% for c in clienti %}<option value="{{ c.id }}">{{ c.ragione_sociale }}</option>{% endfor %}
+        {% for c in clienti %}
+        <option value="{{ c.id }}" {% if preselect_cliente and c.id|string == preselect_cliente|string %}selected{% endif %}>{{ c.ragione_sociale }}</option>
+        {% endfor %}
       </select>
     </div>
 
