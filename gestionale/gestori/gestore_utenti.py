@@ -213,6 +213,17 @@ class GestoreUtenti:
             raise PermissionError("Permesso negato: solo amministratori possono riattivare utenti")
         self.modificaUtente(username, stato=StatoEntita.ATTIVO)
 
+    def eliminaUtente(self, username: str) -> None:
+        """Elimina definitivamente un utente dal sistema."""
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM utenti WHERE username = ?", (username,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Errore nell'eliminazione utente: {e}")
+
     def modificaUtente(self, username: str, nome: str = None, cognome: str = None,
                  password_hash: str = None, stato: StatoEntita = None,
                  ruolo: RuoloUtente = None, nuovo_username: str = None,

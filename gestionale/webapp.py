@@ -422,24 +422,6 @@ def create_app(db_path=None):
         all_operai = gestori["operai"].listaOperai()
         all_materiali = gestori["materiali"].listaMateriali()
         all_progetti = gestori["progetti"].listaProgetti()
-        operai_by_id = {o.id: o for o in all_operai}
-        materiali_by_id = {m.id: m for m in all_materiali}
-        progetti_by_id = {p.id: p for p in all_progetti}
-
-        progetto = progetti_by_id.get(item.get("id_progetto"))
-        item["progetto_nome"] = progetto.nome_progetto if progetto else f"Progetto #{item.get('id_progetto')}"
-
-        for voce in item.get("vociOperai", []):
-            operaio = operai_by_id.get(voce.id_operaio)
-            voce.nome = operaio.nome if operaio else f"ID {voce.id_operaio}"
-            voce.cognome = operaio.cognome if operaio else ""
-            voce.alias = operaio.alias if operaio else ""
-            voce.nome_completo = operaio.getNomeCompleto() if operaio else f"ID {voce.id_operaio}"
-
-        for voce in item.get("vociMat", []):
-            materiale = materiali_by_id.get(voce.id_materiale)
-            voce.descrizione = materiale.descrizione if materiale else f"ID {voce.id_materiale}"
-            voce.unita_misura = materiale.unita_misura if materiale else ""
 
         return item, all_operai, all_materiali, all_progetti
 
@@ -623,12 +605,7 @@ def create_app(db_path=None):
         if detail and current and detail.get("username") == current.username:
             return redirect(url_for("utenti_detail", item_id=item_id))
         if detail:
-            # Elimina per username direttamente su DB.
-            conn = azienda._get_conn()
-            cur = conn.cursor()
-            cur.execute("DELETE FROM utenti WHERE username = ?", (detail["username"],))
-            conn.commit()
-            conn.close()
+            gestori["utenti"].eliminaUtente(detail["username"])
         return redirect(url_for("utenti"))
 
     return app

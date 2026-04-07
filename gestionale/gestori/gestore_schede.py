@@ -296,7 +296,7 @@ class GestoreSchede:
             return 0.0
 
     def dettaglioScheda(self, id_scheda: int) -> dict:
-        """Restituisce i dettagli completi di una scheda."""
+        """Restituisce i dettagli completi di una scheda, con nomi operai/materiali e nome progetto arricchiti."""
         try:
             scheda = self._trova_scheda(id_scheda)
             if not scheda:
@@ -306,11 +306,40 @@ class GestoreSchede:
             scheda.voci_materiali = self._get_voci_materiali(id_scheda)
             scheda.allegati = self._get_allegati(id_scheda)
 
+            # Arricchisce le voci operaio con i dati anagrafici
+            for voce in scheda.voci_operai:
+                op = self._trova_operaio(voce.id_operaio)
+                if op:
+                    voce.nome = op['nome']
+                    voce.cognome = op['cognome']
+                    voce.alias = op['alias'] or ''
+                    voce.nome_completo = f"{op['nome']} {op['cognome']}".strip()
+                else:
+                    voce.nome = f"ID {voce.id_operaio}"
+                    voce.cognome = ''
+                    voce.alias = ''
+                    voce.nome_completo = f"ID {voce.id_operaio}"
+
+            # Arricchisce le voci materiale con descrizione e unità di misura
+            for voce in scheda.voci_materiali:
+                mat = self._trova_materiale(voce.id_materiale)
+                if mat:
+                    voce.descrizione = mat['descrizione']
+                    voce.unita_misura = mat['unita_misura'] or ''
+                else:
+                    voce.descrizione = f"ID {voce.id_materiale}"
+                    voce.unita_misura = ''
+
+            # Risolve il nome del progetto
+            progetto = self._trova_progetto(scheda.id_progetto)
+            progetto_nome = progetto['nome_progetto'] if progetto else f"Progetto #{scheda.id_progetto}"
+
             return {
                 "id": scheda.id,
                 "data": scheda.data,
                 "descrizione": scheda.descrizione,
                 "id_progetto": scheda.id_progetto,
+                "progetto_nome": progetto_nome,
                 "scheda": scheda,
                 "vociOperai": scheda.voci_operai,
                 "vociMat": scheda.voci_materiali,
