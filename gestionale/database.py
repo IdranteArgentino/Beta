@@ -178,18 +178,12 @@ def inizializza_db(db_file="data/gestionale.db"):
     # Admin di default
     cursor.execute("SELECT id FROM utenti WHERE username = ?", ('admin',))
     res = cursor.fetchone()
-    pwd_hash = generate_password_hash("admin")
     if res is None:
+        pwd_hash = generate_password_hash("admin")
         cursor.execute("""
             INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo)
             VALUES (?, ?, ?, ?, ?, ?)
         """, ('admin', 'Amministratore', 'Sistema', pwd_hash, 'ATTIVO', 'ADMIN'))
-    else:
-        cursor.execute("""
-            UPDATE utenti
-            SET nome = ?, cognome = ?, password_hash = ?, stato = ?, ruolo = ?
-            WHERE username = ?
-        """, ('Amministratore', 'Sistema', pwd_hash, 'ATTIVO', 'ADMIN', 'admin'))
 
     conn.commit()
     conn.close()

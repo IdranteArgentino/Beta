@@ -149,12 +149,6 @@ class GestoreProgetti:
             cur.execute("SELECT * FROM clienti WHERE id = ?", (p.id_cliente,))
             cr = cur.fetchone()
             if cr:
-                from ..models import StatoEntita, Cliente
-                cliente = {
-                    'id': cr['id'],
-                    'ragione_sociale': cr['nome_progetto'] if 'nome_progetto' in cr.keys() else cr['ragione_sociale'],
-                }
-                # corretto: cr ha ragione_sociale
                 cliente = {'id': cr['id'], 'ragione_sociale': cr['ragione_sociale']}
 
             conn.close()
@@ -252,7 +246,7 @@ class GestoreProgetti:
         return self.listaProgetto()
 
     def schedeGiornaliereProgetto(self, id_progetto: int = None) -> list:
-        """Ottiene le schede giornaliere associate al progetto, ordinate per id desc (ultima modificata prima)."""
+        """Ottiene le schede giornaliere associate al progetto, ordinate per id decrescente (più recenti per inserimento prima)."""
         try:
             if id_progetto is None:
                 return []

@@ -12,6 +12,10 @@
   <form method="post" action="{{ url_for('progetti_new') }}" class="form-card">
     <h2>🏗️ Informazioni Progetto</h2>
 
+    {% if error %}
+    <div class="error">⚠️ {{ error }}</div>
+    {% endif %}
+
     {% if preselect_cliente %}
     <input type="hidden" name="from_cliente" value="{{ preselect_cliente }}">
     {% endif %}

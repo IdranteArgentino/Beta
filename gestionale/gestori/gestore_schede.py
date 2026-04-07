@@ -194,7 +194,7 @@ class GestoreSchede:
                 for r in cur.fetchall()
             ]
 
-            # Costo totale progetti in corso
+            # Costo totale progetti in corso (subquery separate per evitare prodotto cartesiano)
             cur.execute("""
                 SELECT
                     COALESCE((
@@ -215,7 +215,7 @@ class GestoreSchede:
             r = cur.fetchone()
             costo_in_corso = float(r['tot'] or 0)
 
-            # Costo totale settimana
+            # Costo totale settimana (subquery separate per evitare prodotto cartesiano)
             cur.execute("""
                 SELECT
                     COALESCE((

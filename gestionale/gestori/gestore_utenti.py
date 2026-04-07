@@ -281,9 +281,17 @@ class GestoreUtenti:
         return generate_password_hash(password)
 
     def _verificaPassword(self, password: str, password_hash: str) -> bool:
-        """Verifica se la password corrisponde all'hash (werkzeug check_password_hash)."""
+        """Verifica se la password corrisponde all'hash.
+        Supporta sia hash werkzeug (pbkdf2) che hash SHA256 legacy (migrazione trasparente)."""
         try:
-            return check_password_hash(password_hash, password)
+            # Prova prima con werkzeug (hash moderno)
+            if check_password_hash(password_hash, password):
+                return True
+            # Fallback: hash SHA256 legacy (64 caratteri hex)
+            if len(password_hash) == 64:
+                import hashlib
+                return hashlib.sha256(password.encode()).hexdigest() == password_hash
+            return False
         except Exception:
             return False
 

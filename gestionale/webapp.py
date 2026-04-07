@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from functools import wraps
 from uuid import uuid4
 
-from flask import Flask, redirect, render_template, request, session, url_for, abort
+from flask import Flask, flash, redirect, render_template, request, session, url_for, abort
 from werkzeug.utils import secure_filename
 
 from .azienda import Azienda
@@ -287,6 +287,7 @@ def create_app(db_path=None):
     def progetti_new():
         if request.method == "POST":
             id_cliente_raw = request.form.get("id_cliente", "0")
+            from_cliente = request.form.get("from_cliente")
             try:
                 gestori["progetti"].creaProgetto(
                     request.form.get("nome_progetto", ""),
@@ -294,12 +295,23 @@ def create_app(db_path=None):
                     request.form.get("indirizzo_cantiere", ""),
                     request.form.get("note", ""),
                 )
-            except ValueError:
-                pass
+            except ValueError as e:
+                clienti = gestori["clienti"].listaClienti()
+                preselect_cliente = from_cliente or id_cliente_raw or None
+                return render_template(
+                    "progetto_new.html",
+                    clienti=clienti,
+                    preselect_cliente=preselect_cliente,
+                    error=str(e),
+                )
             # Redirect al cliente se pre-selezionato
-            from_cliente = request.form.get("from_cliente")
             if from_cliente:
-                return redirect(url_for("clienti_detail", item_id=from_cliente))
+                try:
+                    from_cliente_id = int(from_cliente)
+                except (TypeError, ValueError):
+                    from_cliente_id = None
+                if from_cliente_id is not None:
+                    return redirect(url_for("clienti_detail", item_id=from_cliente_id))
             return redirect(url_for("progetti"))
         clienti = gestori["clienti"].listaClienti()
         preselect_cliente = request.args.get("id_cliente")

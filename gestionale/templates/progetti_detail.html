@@ -82,7 +82,7 @@
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
       <h2 style="margin:0;">📋 Schede Giornaliere</h2>
       {% if item.stato == 'IN_CORSO' %}
-      <a href="{{ url_for('giornaliero') }}" class="btn-primary">+ Nuova Scheda</a>
+      <a href="{{ url_for('giornaliero', project_ids=item.id) }}" class="btn-primary">+ Nuova Scheda</a>
       {% endif %}
     </div>
     {% if item.schede %}
