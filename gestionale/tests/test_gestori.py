@@ -446,6 +446,15 @@ class TestGestoreSchede(BaseTestGestori):
         # Totale atteso: 200 + 15 + 100 = 315€
         self.assertAlmostEqual(progetto.getCostoTotale(), 315.0)
 
+    def test_nome_scheda_progressivo_per_progetto(self):
+        """Il nome progressivo e' separato dalla descrizione della scheda."""
+        s1 = self.g_schede.creaScheda(self.prog.id, "2023-11-01", "")
+        s2 = self.g_schede.creaScheda(self.prog.id, "2023-11-02", "")
+
+        self.assertEqual(s1.descrizione, "")
+        self.assertEqual(s2.descrizione, "")
+        self.assertEqual(self.g_schede.prossimoNomeSchedaProgetto(self.prog.id), "Scheda n° 3")
+
 
 if __name__ == '__main__':
     unittest.main()

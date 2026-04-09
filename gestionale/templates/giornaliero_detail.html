@@ -1,22 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
+<div class="detail-page detail-page--giornaliero">
+<div class="page-header page-header--detail">
   <div>
-    <h1>📋 Dettaglio Scheda Giornaliera</h1>
+    <h1>Dettaglio Scheda Giornaliera</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.data }} | {{ item.progetto_nome or ('Progetto #' ~ item.id_progetto) }}</p>
   </div>
   <div class="page-header-actions">
     <a href="{{ url_for('giornaliero') }}" class="btn-secondary">← Torna alla lista</a>
-    <a href="{{ url_for('giornaliero_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <a href="{{ url_for('giornaliero_edit', item_id=item.id) }}" class="btn-warning">Modifica</a>
     <form method="post" action="{{ url_for('giornaliero_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questa scheda?" data-confirm-second="Seconda conferma: la scheda verra' eliminata in modo permanente.">
-      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+      <button type="submit" class="btn-danger">Elimina</button>
     </form>
   </div>
 </div>
 
-<div class="details-container">
-  <div class="details-card">
-    <h2>📝 Informazioni Scheda Giornaliera</h2>
+<div class="details-container details-container--detail">
+  <div class="details-card" id="operai">
+    <h2>Informazioni Scheda Giornaliera</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Data</label>
@@ -36,7 +37,7 @@
       </div>
       <div class="detail-item">
         <label>Costo Totale</label>
-        <p><strong>€ {{ item.costo_totale }}</strong></p>
+        <p><strong>€ {{ item.costo_totale|round(2) }}</strong></p>
       </div>
       <div class="detail-item">
         <label>Operai</label>
@@ -53,8 +54,9 @@
     </div>
   </div>
 
-  <div class="details-card">
-    <h2>👷 Operai</h2>
+  <div class="details-column details-column--left">
+  <div class="details-card" id="operai-voci">
+    <h2>Operai</h2>
     <form method="post" action="{{ url_for('giornaliero_add_operaio', item_id=item.id) }}" class="search-bar">
       <select name="id_operaio" class="sort-select" required>
         <option value="">-- Seleziona operaio --</option>
@@ -100,8 +102,59 @@
     {% endif %}
   </div>
 
-  <div class="details-card">
-    <h2>📦 Materiali</h2>
+
+  <div class="details-card" id="allegati-voci">
+    <h2>Allegati</h2>
+    <form method="post" action="{{ url_for('giornaliero_add_allegato', item_id=item.id) }}" class="search-bar" enctype="multipart/form-data">
+      <input type="file" name="file" class="search-input" required>
+      <input type="text" name="nome_file" class="search-input" placeholder="Nome allegato (es. foto_cantiere_01.jpg)" required>
+      <button type="submit" class="btn-primary">Carica allegato</button>
+    </form>
+
+    {% if item.allegati %}
+    <div class="table-container">
+      <table class="data-table allegati-table">
+        <thead>
+          <tr>
+            <th class="allegati-col-file">File</th>
+            <th class="allegati-col-show">Mostra</th>
+            <th class="allegati-col-change">Cambia</th>
+            <th class="col-azioni allegati-col-actions">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for allegato in item.allegati %}
+          <tr>
+            <td class="allegati-col-file" title="{{ allegato.getNomeFile() }}"><strong class="allegato-file-name">{{ allegato.getNomeFile() }}</strong></td>
+            <td class="allegati-col-show">
+              <a href="{{ url_for('giornaliero_show_allegato', item_id=item.id, id_allegato=allegato.id) }}" class="btn-secondary" target="_blank" rel="noopener">Mostra</a>
+            </td>
+            <td class="allegati-col-change">
+              <form method="post" action="{{ url_for('giornaliero_change_allegato', item_id=item.id, id_allegato=allegato.id) }}" class="search-bar allegato-change-form" enctype="multipart/form-data">
+                <input type="file" name="file" class="search-input allegato-file-input" required>
+                <input type="text" name="nome_file" class="search-input allegato-name-input" value="{{ allegato.getNomeFile() }}" required>
+                <button type="submit" class="btn-warning">Cambia</button>
+              </form>
+            </td>
+            <td class="col-azioni allegati-col-actions">
+              <form method="post" action="{{ url_for('giornaliero_remove_allegato', item_id=item.id, id_allegato=allegato.id) }}" data-double-confirm="true" data-confirm-first="Rimuovere l'allegato dalla scheda?">
+                <button type="submit" class="btn-danger">Rimuovi</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessun allegato caricato.</p>
+    {% endif %}
+  </div>
+  </div>
+
+  <div class="details-column details-column--right">
+  <div class="details-card" id="materiali">
+    <h2>Materiali</h2>
     <form method="post" action="{{ url_for('giornaliero_add_materiale', item_id=item.id) }}" class="search-bar">
       <select name="id_materiale" class="sort-select" required>
         <option value="">-- Seleziona materiale --</option>
@@ -146,43 +199,8 @@
     <p class="table-info">Nessun materiale inserito.</p>
     {% endif %}
   </div>
-
-  <div class="details-card">
-    <h2>📎 Allegati</h2>
-    <form method="post" action="{{ url_for('giornaliero_add_allegato', item_id=item.id) }}" class="search-bar" enctype="multipart/form-data">
-      <input type="file" name="file" class="search-input" required>
-      <button type="submit" class="btn-primary">+ Carica allegato</button>
-    </form>
-
-    {% if item.allegati %}
-    <div class="table-container">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>File</th>
-            <th>Percorso</th>
-            <th class="col-azioni">Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for allegato in item.allegati %}
-          <tr>
-            <td><strong>{{ allegato.getNomeFile() }}</strong></td>
-            <td>{{ allegato.path }}</td>
-            <td class="col-azioni">
-              <form method="post" action="{{ url_for('giornaliero_remove_allegato', item_id=item.id, id_allegato=allegato.id) }}" data-double-confirm="true" data-confirm-first="Rimuovere l'allegato dalla scheda?">
-                <button type="submit" class="btn-danger">Rimuovi</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="table-info">Nessun allegato caricato.</p>
-    {% endif %}
   </div>
+</div>
 </div>
 
 {% endblock %}

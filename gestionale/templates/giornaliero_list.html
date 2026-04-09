@@ -2,12 +2,9 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📋 Giornaliero</h1>
-    <p class="subtitle">Matrice giorni x progetti</p>
+    <h1>Giornaliero</h1>
   </div>
-  <div class="page-header-actions">
-    <button type="button" class="btn-primary" id="openNewSheetModal" {% if not all_progetti %}disabled title="Crea prima almeno un progetto"{% endif %}>+ Nuova scheda giornaliera</button>
-  </div>
+  <button type="button" class="btn-primary" id="openNewSheetModal" {% if not all_progetti %}disabled title="Crea prima almeno un progetto"{% endif %}>Nuova Scheda</button>
 </div>
 
 <div class="filters-section">
@@ -26,6 +23,11 @@
     <button type="submit" class="btn-search">Applica</button>
     <a href="{{ url_for('giornaliero') }}" class="btn-cancel">Reset</a>
   </form>
+</div>
+
+<div class="table-info giornaliero-pagination-info">
+  Visualizzazione progetti: <strong>{{ progetti_page|length }}</strong> su <strong>{{ total_projects }}</strong>
+  · Pagina <strong>{{ page }}</strong> di <strong>{{ total_pages }}</strong>
 </div>
 
 <div class="project-picker-modal" id="projectPickerModal" aria-hidden="true">
@@ -88,7 +90,7 @@
     <thead>
       <tr>
         <th class="giornaliero-day-header">Giorno</th>
-        {% for p in progetti %}
+        {% for p in progetti_page %}
         <th class="giornaliero-project-header">{{ p.nome_progetto }}</th>
         {% endfor %}
       </tr>
@@ -97,12 +99,12 @@
       {% for day in days %}
       <tr>
         <td class="giornaliero-day-cell">{{ day.label }}</td>
-        {% for p in progetti %}
+        {% for p in progetti_page %}
           {% set cell = cell_map.get(day.key, {}).get(p.id) %}
           <td class="giornaliero-sheet-cell {% if cell %}has-entry{% endif %}">
             {% if cell %}
-              <a href="{{ url_for('giornaliero_detail', item_id=cell.id) }}" title="Apri scheda {{ cell.id }}">
-                Scheda #{{ cell.id }}{% if cell.count > 1 %} (+{{ cell.count - 1 }}){% endif %}
+              <a href="{{ url_for('giornaliero_detail', item_id=cell.id) }}" title="Apri scheda giornaliera">
+                Scheda{% if cell.count > 1 %} (+{{ cell.count - 1 }}){% endif %}
               </a>
             {% endif %}
           </td>
@@ -111,6 +113,22 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<div class="page-header-actions giornaliero-pagination-actions">
+  <a
+    href="{{ url_for('giornaliero', start_date=start_date_value, end_date=end_date_value, page=page-1, project_ids=selected_project_ids) }}"
+    data-show-loader="true"
+    class="btn-secondary {% if page <= 1 %}is-disabled{% endif %}"
+    {% if page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}
+  >Pagina precedente</a>
+  <span class="table-info">Pagina <strong>{{ page }}</strong> / <strong>{{ total_pages }}</strong></span>
+  <a
+    href="{{ url_for('giornaliero', start_date=start_date_value, end_date=end_date_value, page=page+1, project_ids=selected_project_ids) }}"
+    data-show-loader="true"
+    class="btn-secondary {% if page >= total_pages %}is-disabled{% endif %}"
+    {% if page >= total_pages %}aria-disabled="true" tabindex="-1"{% endif %}
+  >Pagina successiva</a>
 </div>
 
 <script>

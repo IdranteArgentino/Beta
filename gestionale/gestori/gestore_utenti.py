@@ -88,25 +88,27 @@ class GestoreUtenti:
             print(f"Errore nell'aggiunta utente: {e}")
 
     def cambiaPasswordUtente(self, utente: Utente, password_vecchia: str,
-                             password_nuova: str, password_conferma: str) -> None:
+                             password_nuova: str, password_conferma: str) -> tuple[bool, str]:
         """Cambia la password di un utente dopo verifica della vecchia password."""
         try:
-            if not self._verificaPassword(password_vecchia, utente.password):
-                print("Password vecchia non corretta")
-                return
+            if not utente:
+                return False, "Utente non valido."
+
+            if not self._verificaPassword(password_vecchia or "", utente.password):
+                return False, "Password attuale non corretta."
 
             if password_nuova != password_conferma:
-                print("Le password non corrispondono")
-                return
+                return False, "Le password non coincidono."
 
-            if not self._validaPassword(password_nuova):
-                print("Nuova password non valida")
-                return
+            if not self._validaPassword(password_nuova or ""):
+                return False, "Nuova password non valida (minimo 6 caratteri e almeno 1 numero)."
 
             password_hash = self._hashPassword(password_nuova)
             self.modificaUtente(utente.username, password_hash=password_hash)
+            return True, "Password aggiornata correttamente."
         except Exception as e:
             print(f"Errore nel cambio password: {e}")
+            return False, "Errore durante l'aggiornamento password."
 
     def modificaPassword(self, utente: Utente, password_vecchia: str,
                          password_nuova: str, password_conferma: str) -> None:

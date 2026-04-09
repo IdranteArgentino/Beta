@@ -7,23 +7,58 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute; visibility:hidden;" aria-hidden="true" focusable="false">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5L12 4l9 7.5M5 10v10h14V10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 19a4 4 0 0 0-8 0M8 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8 1a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16 11zm5 8a4.5 4.5 0 0 0-7-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-worker" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-5a5 5 0 0 1 10 0v5M9 7V5h6v2M7.5 9h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zm0 0v9m8-4.5l-8 4.5-8-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-project" viewBox="0 0 24 24"><path d="M3 7h8v14H3zM13 3h8v18h-8zM3 5h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7zM15 3v5h4M10 12h6M10 16h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7zm7-3.5l2 1-2 3-2-.5a7.5 7.5 0 0 1-1.5 1l-.5 2h-4l-.5-2a7.5 7.5 0 0 1-1.5-1l-2 .5-2-3 2-1a7.5 7.5 0 0 1 0-2l-2-1 2-3 2 .5a7.5 7.5 0 0 1 1.5-1l.5-2h4l.5 2a7.5 7.5 0 0 1 1.5 1l2-.5 2 3-2 1a7.5 7.5 0 0 1 0 2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-profile" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
   <header class="topbar">
-    <div class="brand"><a href="{{ url_for('home') }}">📊 Gestionale</a></div>
+    <div class="brand"><a href="{{ url_for('home') }}"><svg class="nav-icon" aria-hidden="true"><use href="#i-home"></use></svg><span>Gestionale</span></a></div>
     {% if current_user %}
     <nav class="topbar-nav">
-      <a href="{{ url_for('clienti') }}">👥 Clienti</a>
-      <a href="{{ url_for('operai') }}">👷 Operai</a>
-      <a href="{{ url_for('materiali') }}">📦 Materiali</a>
-      <a href="{{ url_for('progetti') }}">🏗️ Progetti</a>
-      <a href="{{ url_for('giornaliero') }}">📋 Giornaliero</a>
-      {% if is_admin %}<a href="{{ url_for('utenti') }}">⚙️ Utenti</a>{% endif %}
+      <a href="{{ url_for('clienti') }}" data-show-loader="true" class="{% if active_section == 'clienti' %}is-active{% endif %}" {% if active_section == 'clienti' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-users"></use></svg><span>Clienti</span></a>
+      <a href="{{ url_for('operai') }}" data-show-loader="true" class="{% if active_section == 'operai' %}is-active{% endif %}" {% if active_section == 'operai' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-worker"></use></svg><span>Operai</span></a>
+      <a href="{{ url_for('materiali') }}" data-show-loader="true" class="{% if active_section == 'materiali' %}is-active{% endif %}" {% if active_section == 'materiali' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-box"></use></svg><span>Materiali</span></a>
+      <a href="{{ url_for('progetti') }}" data-show-loader="true" class="{% if active_section == 'progetti' %}is-active{% endif %}" {% if active_section == 'progetti' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-project"></use></svg><span>Progetti</span></a>
+      <a href="{{ url_for('giornaliero') }}" data-show-loader="true" class="{% if active_section == 'giornaliero' %}is-active{% endif %}" {% if active_section == 'giornaliero' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-sheet"></use></svg><span>Giornaliero</span></a>
+      {% if is_admin %}<a href="{{ url_for('utenti') }}" data-show-loader="true" class="nav-utenti {% if active_section == 'utenti' %}is-active{% endif %}" {% if active_section == 'utenti' %}aria-current="page"{% endif %}><svg class="nav-icon" aria-hidden="true"><use href="#i-settings"></use></svg><span>Utenti</span></a>{% endif %}
     </nav>
-    <div class="profile">👤 <strong>{{ current_user.username }}</strong> | <a href="{{ url_for('logout') }}">Logout</a></div>
+    <div class="profile-menu" id="profileMenuRoot">
+      <button type="button" class="profile-menu__trigger" id="profileMenuTrigger" aria-label="Apri menu profilo" aria-expanded="false" aria-controls="profileMenuPanel"><svg class="nav-icon" aria-hidden="true"><use href="#i-profile"></use></svg></button>
+      <div class="profile-menu__panel" id="profileMenuPanel" aria-hidden="true">
+        <p class="profile-menu__title">{{ current_user.getNomeCompleto() }}</p>
+        <p class="profile-menu__info">@{{ current_user.username }}</p>
+        <p class="profile-menu__info">Ruolo: {{ current_user.ruolo.value }}</p>
+        <p class="profile-menu__info">Stato: {{ current_user.stato.value }}</p>
+        <button type="button" class="btn-secondary profile-menu__password-open" id="openPasswordModal">Cambia password</button>
+        <form method="post" action="{{ url_for('logout') }}" data-double-confirm="true" data-confirm-first="Vuoi davvero effettuare il logout?" data-confirm-button="Conferma logout">
+          <button type="submit" class="btn-danger profile-menu__logout">Logout</button>
+        </form>
+      </div>
+    </div>
     {% endif %}
   </header>
   <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="{{ 'success' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <div class="auto-search-loader" id="autoSearchLoader" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+  <div class="page-loader" id="pageLoader" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
   <div class="confirm-modal" id="deleteConfirmModal" aria-hidden="true">
     <div class="confirm-modal__overlay" id="deleteConfirmOverlay"></div>
     <div class="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
@@ -33,6 +68,30 @@
         <button type="button" class="btn-cancel" id="deleteConfirmCancel">Annulla</button>
         <button type="button" class="btn-danger" id="deleteConfirmSubmit">Conferma eliminazione</button>
       </div>
+    </div>
+  </div>
+  <div class="confirm-modal" id="profilePasswordModal" aria-hidden="true">
+    <div class="confirm-modal__overlay" id="profilePasswordOverlay"></div>
+    <div class="confirm-modal__dialog profile-password-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="profilePasswordTitle">
+      <h3 id="profilePasswordTitle">Cambia password</h3>
+      <form method="post" action="{{ url_for('profilo_cambia_password') }}" class="profile-password-form">
+        <div class="form-group">
+          <label for="profile-password-current">Password attuale</label>
+          <input id="profile-password-current" type="password" name="password_attuale" autocomplete="current-password" required>
+        </div>
+        <div class="form-group">
+          <label for="profile-password-new">Nuova password</label>
+          <input id="profile-password-new" type="password" name="password_nuova" autocomplete="new-password" required>
+        </div>
+        <div class="form-group">
+          <label for="profile-password-confirm">Conferma password</label>
+          <input id="profile-password-confirm" type="password" name="password_conferma" autocomplete="new-password" required>
+        </div>
+        <div class="confirm-modal__actions">
+          <button type="button" class="btn-cancel" id="profilePasswordCancel">Annulla</button>
+          <button type="submit" class="btn-primary">Aggiorna password</button>
+        </div>
+      </form>
     </div>
   </div>
   <script>
@@ -64,6 +123,213 @@
         if (form && form.dataset && form.dataset.doubleConfirm === 'true') {
           event.preventDefault();
           openModal(form);
+          return;
+        }
+        if (form && form.dataset && form.dataset.autoSubmit === 'true') {
+          event.preventDefault();
+          submitAutoForm(form);
+        }
+      });
+
+      const autoLoader = document.getElementById('autoSearchLoader');
+      const pageLoader = document.getElementById('pageLoader');
+
+      function showAutoLoader() {
+        if (!autoLoader) return;
+        autoLoader.classList.add('is-visible');
+        autoLoader.setAttribute('aria-hidden', 'false');
+      }
+
+      function hideAutoLoader() {
+        if (!autoLoader) return;
+        autoLoader.classList.remove('is-visible');
+        autoLoader.setAttribute('aria-hidden', 'true');
+      }
+
+      function showPageLoader() {
+        if (!pageLoader) return;
+        pageLoader.classList.add('is-visible');
+        pageLoader.setAttribute('aria-hidden', 'false');
+      }
+
+      document.addEventListener('click', function (event) {
+        const link = event.target.closest('a[data-show-loader="true"]');
+        if (!link) return;
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const href = link.getAttribute('href') || '';
+        if (!href || href.startsWith('#')) return;
+        if (link.getAttribute('target') === '_blank' || link.hasAttribute('download')) return;
+        showPageLoader();
+      });
+
+      document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!form || !form.dataset || form.dataset.autoSubmit === 'true') return;
+        if (form.dataset.showLoader === 'true') {
+          showPageLoader();
+        }
+      });
+
+      const autoFormControllers = new WeakMap();
+
+      function submitAutoForm(form) {
+        if (!form) return;
+
+        const previousController = autoFormControllers.get(form);
+        if (previousController) {
+          previousController.abort();
+        }
+
+        const controller = new AbortController();
+        autoFormControllers.set(form, controller);
+
+        const params = new URLSearchParams(new FormData(form));
+        const action = form.getAttribute('action') || window.location.pathname;
+        const separator = action.indexOf('?') === -1 ? '?' : '&';
+        const url = action + separator + params.toString();
+        const targetSelector = form.dataset.autoTarget || '.table-container';
+
+        const queryInput = form.querySelector('input[name="q"]');
+        const hadFocus = !!(queryInput && document.activeElement === queryInput);
+        const selectionStart = hadFocus ? queryInput.selectionStart : null;
+        const selectionEnd = hadFocus ? queryInput.selectionEnd : null;
+
+        showAutoLoader();
+
+        fetch(url, {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          signal: controller.signal
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('Errore HTTP ' + response.status);
+            }
+            return response.text();
+          })
+          .then(function (html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const nextTarget = doc.querySelector(targetSelector);
+            const currentTarget = document.querySelector(targetSelector);
+
+            if (nextTarget && currentTarget) {
+              currentTarget.replaceWith(nextTarget);
+            }
+
+            window.history.replaceState({}, '', url);
+
+            if (queryInput) {
+              queryInput.focus();
+              if (hadFocus && selectionStart !== null && selectionEnd !== null) {
+                try {
+                  queryInput.setSelectionRange(selectionStart, selectionEnd);
+                } catch (e) {
+                  // Ignora browser che non supportano setSelectionRange su input specifici.
+                }
+              }
+            }
+          })
+          .catch(function (error) {
+            if (error && error.name === 'AbortError') {
+              return;
+            }
+            form.submit();
+          })
+          .finally(function () {
+            if (autoFormControllers.get(form) === controller) {
+              autoFormControllers.delete(form);
+            }
+            hideAutoLoader();
+          });
+      }
+
+      function initAutoSubmitSearch() {
+        const forms = document.querySelectorAll('form[data-auto-submit="true"]');
+        forms.forEach(function (form) {
+          let timer = null;
+          const delay = Number(form.dataset.autoDelay || 450);
+          const queryInput = form.querySelector('input[name="q"]');
+          const sortSelect = form.querySelector('select[name="sort"]');
+
+          if (queryInput) {
+            queryInput.addEventListener('input', function () {
+              if (timer) {
+                clearTimeout(timer);
+              }
+              timer = setTimeout(function () {
+                submitAutoForm(form);
+              }, delay);
+            });
+          }
+
+          if (sortSelect) {
+            sortSelect.addEventListener('change', function () {
+              submitAutoForm(form);
+            });
+          }
+        });
+      }
+
+      initAutoSubmitSearch();
+
+      const profileRoot = document.getElementById('profileMenuRoot');
+      const profileTrigger = document.getElementById('profileMenuTrigger');
+      const profilePanel = document.getElementById('profileMenuPanel');
+      const passwordModal = document.getElementById('profilePasswordModal');
+      const passwordModalOverlay = document.getElementById('profilePasswordOverlay');
+      const passwordModalCancel = document.getElementById('profilePasswordCancel');
+      const openPasswordModalBtn = document.getElementById('openPasswordModal');
+
+      function closeProfileMenu() {
+        if (!profileRoot || !profileTrigger || !profilePanel) return;
+        profileRoot.classList.remove('is-open');
+        profileTrigger.setAttribute('aria-expanded', 'false');
+        profilePanel.setAttribute('aria-hidden', 'true');
+      }
+
+      function openProfileMenu() {
+        if (!profileRoot || !profileTrigger || !profilePanel) return;
+        profileRoot.classList.add('is-open');
+        profileTrigger.setAttribute('aria-expanded', 'true');
+        profilePanel.setAttribute('aria-hidden', 'false');
+      }
+
+      function closePasswordModal() {
+        if (!passwordModal) return;
+        passwordModal.classList.remove('is-open');
+        passwordModal.setAttribute('aria-hidden', 'true');
+      }
+
+      function openPasswordModal() {
+        if (!passwordModal) return;
+        passwordModal.classList.add('is-open');
+        passwordModal.setAttribute('aria-hidden', 'false');
+      }
+
+      if (profileTrigger) {
+        profileTrigger.addEventListener('click', function () {
+          if (profileRoot.classList.contains('is-open')) {
+            closeProfileMenu();
+          } else {
+            openProfileMenu();
+          }
+        });
+      }
+
+      if (openPasswordModalBtn) {
+        openPasswordModalBtn.addEventListener('click', function () {
+          closeProfileMenu();
+          openPasswordModal();
+        });
+      }
+
+      document.addEventListener('click', function (event) {
+        if (!profileRoot) return;
+        if (!profileRoot.contains(event.target)) {
+          closeProfileMenu();
         }
       });
 
@@ -76,9 +342,21 @@
 
       cancelBtn.addEventListener('click', closeModal);
       overlay.addEventListener('click', closeModal);
+      if (passwordModalCancel) {
+        passwordModalCancel.addEventListener('click', closePasswordModal);
+      }
+      if (passwordModalOverlay) {
+        passwordModalOverlay.addEventListener('click', closePasswordModal);
+      }
       document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-          closeModal();
+        if (event.key === 'Escape') {
+          if (modal.classList.contains('is-open')) {
+            closeModal();
+          }
+          if (passwordModal && passwordModal.classList.contains('is-open')) {
+            closePasswordModal();
+          }
+          closeProfileMenu();
         }
       });
     })();

@@ -1,396 +1,106 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>📊 Dashboard Gestionale</h1>
-    <p class="subtitle">Benvenuto {{ current_user.nome }}! Seleziona una sezione per iniziare</p>
-  </div>
-</div>
-
-<div class="home-grid">
-  <!-- Clienti -->
-  <a href="{{ url_for('clienti') }}" class="home-card">
-    <div class="home-card-icon">👥</div>
-    <h3>Clienti</h3>
-    <p>Gestione clienti e aziende partner</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-
-  <!-- Operai -->
-  <a href="{{ url_for('operai') }}" class="home-card">
-    <div class="home-card-icon">👷</div>
-    <h3>Operai</h3>
-    <p>Gestione personale e manodopera</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-
-  <!-- Materiali -->
-  <a href="{{ url_for('materiali') }}" class="home-card">
-    <div class="home-card-icon">📦</div>
-    <h3>Materiali</h3>
-    <p>Gestione inventario e magazzino</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-
-  <!-- Progetti -->
-  <a href="{{ url_for('progetti') }}" class="home-card">
-    <div class="home-card-icon">🏗️</div>
-    <h3>Progetti</h3>
-    <p>Gestione cantieri e commesse</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-
-  <!-- Giornaliero -->
-  <a href="{{ url_for('giornaliero') }}" class="home-card">
-    <div class="home-card-icon">📋</div>
-    <h3>Giornaliero</h3>
-    <p>Registrazione schede di lavoro</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-
-  <!-- Utenti (solo admin) -->
-  {% if is_admin %}
-  <a href="{{ url_for('utenti') }}" class="home-card home-card-admin">
-    <div class="home-card-icon">⚙️</div>
-    <h3>Gestione Utenti</h3>
-    <p>Amministrazione account e permessi</p>
-    <span class="home-card-arrow">→</span>
-  </a>
-  {% endif %}
-</div>
-
-<!-- Dashboard indicatori costi -->
-{% if dashboard %}
-<div class="dashboard-stats">
-  <div class="stat-card">
-    <div class="stat-icon">💰</div>
-    <div class="stat-label">Costo settimana</div>
-    <div class="stat-value">€ {{ "%.2f"|format(dashboard.costo_settimana) }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">🏗️</div>
-    <div class="stat-label">Costo progetti in corso</div>
-    <div class="stat-value">€ {{ "%.2f"|format(dashboard.costo_in_corso) }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">📋</div>
-    <div class="stat-label">Schede questa settimana</div>
-    <div class="stat-value">{{ dashboard.schede_settimana|length }}</div>
-  </div>
-</div>
-
-<div class="dashboard-panels">
-  <!-- Lavori della settimana -->
-  <div class="dashboard-panel">
-    <h3>📋 Lavori della settimana</h3>
-    {% if dashboard.schede_settimana %}
-    <ul class="dashboard-list">
-      {% for s in dashboard.schede_settimana %}
-      <li>
-        <a href="{{ url_for('giornaliero_detail', item_id=s.id) }}">
-          <span class="dash-date">{{ s.data }}</span>
-          <span class="dash-desc">{{ s.descrizione or '–' }}</span>
-          <span class="dash-proj">{{ s.nome_progetto }}</span>
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="table-info">Nessuna scheda questa settimana.</p>
-    {% endif %}
-  </div>
-
-  <!-- Ultimi in corso -->
-  <div class="dashboard-panel">
-    <h3>🔄 Ultimi progetti in corso</h3>
-    {% if dashboard.ultimi_in_corso %}
-    <ul class="dashboard-list">
-      {% for p in dashboard.ultimi_in_corso %}
-      <li>
-        <a href="{{ url_for('progetti_detail', item_id=p.id) }}">
-          <span class="dash-desc">{{ p.nome_progetto }}</span>
-          <span class="dash-proj">{{ p.indirizzo_cantiere or '–' }}</span>
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="table-info">Nessun progetto in corso.</p>
-    {% endif %}
-  </div>
-
-  <!-- Ultimi completati -->
-  <div class="dashboard-panel">
-    <h3>✅ Ultimi progetti completati</h3>
-    {% if dashboard.ultimi_completati %}
-    <ul class="dashboard-list">
-      {% for p in dashboard.ultimi_completati %}
-      <li>
-        <a href="{{ url_for('progetti_detail', item_id=p.id) }}">
-          <span class="dash-desc">{{ p.nome_progetto }}</span>
-          <span class="dash-proj">{{ p.indirizzo_cantiere or '–' }}</span>
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="table-info">Nessun progetto completato.</p>
-    {% endif %}
-  </div>
-</div>
-{% endif %}
-
-<!-- Sezione Info -->
-<div class="home-info-section">
-  <div class="info-card">
-    <div class="info-icon">ℹ️</div>
-    <h4>Informazioni Utente</h4>
-    <p><strong>Username:</strong> {{ current_user.username }}</p>
-    <p><strong>Nome:</strong> {{ current_user.nome }} {{ current_user.cognome }}</p>
-    <p>
-      <strong>Ruolo:</strong>
-      {% if is_admin %}
-      <span class="badge" style="background-color: #fbbf24; color: #92400e;">ADMIN</span>
-      {% else %}
-      <span class="badge">Staff</span>
-      {% endif %}
+<section class="home-hero">
+  <div class="home-hero__copy">
+    <p class="home-eyebrow">Dashboard operativa</p>
+    <h1>Ciao {{ current_user.nome }}</h1>
+    <p class="home-hero__greeting">Cosa vuoi fare oggi?</p>
+    <div class="home-hero__actions">
+      <a href="{{ url_for('giornaliero') }}" class="btn-primary">Apri giornaliero</a>
+      <a href="{{ url_for('progetti_new') }}" class="btn-secondary">Nuovo progetto</a>
+      <a href="{{ url_for('clienti_new') }}" class="btn-secondary">Nuovo cliente</a>
+    </div>
+    <p class="home-hero__meta-line">
+      <span>{{ dashboard.schede_settimana_count }} schede questa settimana</span>
+      <span>{{ dashboard.progetti_ultimo_mese_count }} progetti nell'ultimo mese</span>
+      <span>{{ dashboard.progetti_totali_count }} progetti totali</span>
     </p>
   </div>
 
-  <div class="info-card">
-    <div class="info-icon">📌</div>
-    <h4>Quick Links</h4>
-    <ul style="list-style: none; padding: 0; margin: 0;">
-      <li><a href="{{ url_for('clienti_new') }}" style="color: var(--primary-color); text-decoration: none;">➕ Aggiungi Cliente</a></li>
-      <li><a href="{{ url_for('operai') }}" style="color: var(--primary-color); text-decoration: none;">➕ Aggiungi Operaio</a></li>
-      <li><a href="{{ url_for('materiali') }}" style="color: var(--primary-color); text-decoration: none;">➕ Aggiungi Materiale</a></li>
-      <li><a href="{{ url_for('progetti') }}" style="color: var(--primary-color); text-decoration: none;">➕ Aggiungi Progetto</a></li>
+  <aside class="home-hero__panel">
+    <p class="home-hero__panel-label">Riepilogo economico</p>
+    <div class="home-hero__summary">
+      <div>
+        <span>Costi totali</span>
+        <strong>€ {{ "%.2f"|format(dashboard.costo_in_corso) }}</strong>
+      </div>
+      <div>
+        <span>Costi dell'ultimo mese</span>
+        <strong>€ {{ "%.2f"|format(dashboard.costo_mese) }}</strong>
+      </div>
+    </div>
+  </aside>
+</section>
+
+{% if dashboard %}
+<section class="home-main-grid">
+  <article class="home-panel home-panel--urgent">
+    <div class="home-panel-header">
+      <div>
+        <h2>Settimana Corrente</h2>
+      </div>
+      <a href="{{ url_for('giornaliero') }}" class="btn-secondary">Vai al giornaliero</a>
+    </div>
+
+    {% if dashboard.recap_settimana %}
+    <div class="home-week-matrix">
+      <table class="home-week-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Progetto</th>
+            <th>Descrizione</th>
+            <th>Ore</th>
+            <th>Costo</th>
+            <th class="col-azioni home-week-action-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in dashboard.recap_settimana %}
+          <tr>
+            <td>{{ r.data }}</td>
+            <td>{{ r.nome_progetto }}</td>
+            <td>{{ r.descrizione or '–' }}</td>
+            <td>{{ r.ore_totali|round(1) }} h</td>
+            <td>€ {{ r.costo_totale|round(2) }}</td>
+            <td class="col-azioni home-week-action-col">
+              <a href="{{ url_for('giornaliero_detail', item_id=r.id) }}" class="home-week-open" aria-label="Apri scheda giornaliera"></a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="table-info">Nessuna scheda registrata in questa settimana.</p>
+    {% endif %}
+  </article>
+
+  <aside class="home-panel home-panel--trend">
+    <div class="home-panel-header">
+      <div>
+        <h2>Ultimi Progetti</h2>
+      </div>
+    </div>
+
+    {% if dashboard.progetti_ultimo_mese %}
+    <ul class="home-list home-list--compact">
+      {% for p in dashboard.progetti_ultimo_mese %}
+      <li>
+        <a href="{{ url_for('progetti_detail', item_id=p.id) }}">
+          <span class="home-list-main">{{ p.nome_progetto }}</span>
+          <span class="home-list-meta">{{ p.ultima_scheda }} · {{ p.indirizzo_cantiere or 'Cantiere non specificato' }}</span>
+        </a>
+      </li>
+      {% endfor %}
     </ul>
-  </div>
-</div>
+    {% else %}
+    <p class="table-info">Nessun progetto con attività negli ultimi 30 giorni.</p>
+    {% endif %}
+  </aside>
+</section>
 
-<style>
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.home-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 2rem;
-  text-decoration: none;
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.home-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-color));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
-}
-
-.home-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.15);
-  border-color: var(--primary-color);
-}
-
-.home-card:hover::before {
-  transform: scaleX(1);
-}
-
-.home-card-admin {
-  border-color: #fbbf24;
-}
-
-.home-card-admin:hover {
-  box-shadow: 0 8px 16px rgba(251, 191, 36, 0.15);
-}
-
-.home-card-icon {
-  font-size: 2.5rem;
-  display: inline-block;
-}
-
-.home-card h3 {
-  font-size: 1.25rem;
-  margin: 0;
-  font-weight: 600;
-}
-
-.home-card p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  flex: 1;
-}
-
-.home-card-arrow {
-  font-size: 1.5rem;
-  transition: transform 0.3s ease;
-  align-self: flex-end;
-}
-
-.home-card:hover .home-card-arrow {
-  transform: translateX(4px);
-}
-
-/* Dashboard stats */
-.dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: var(--surface);
-  border-radius: 0.75rem;
-  padding: 1.25rem 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border-left: 4px solid var(--primary-color);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.stat-icon { font-size: 1.5rem; }
-.stat-label { font-size: 0.85rem; color: var(--text-secondary); }
-.stat-value { font-size: 1.4rem; font-weight: 700; color: var(--primary-color); }
-
-/* Dashboard panels */
-.dashboard-panels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.dashboard-panel {
-  background: var(--surface);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.dashboard-panel h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.dashboard-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.dashboard-list li {
-  border-bottom: 1px solid var(--border);
-  padding: 0.5rem 0;
-}
-
-.dashboard-list li:last-child {
-  border-bottom: none;
-}
-
-.dashboard-list a {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  text-decoration: none;
-  color: var(--text-primary);
-}
-
-.dashboard-list a:hover { color: var(--primary-color); }
-
-.dash-date {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.dash-desc {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.dash-proj {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.home-info-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-top: 2rem;
-}
-
-.info-card {
-  background-color: var(--surface);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-left: 3px solid var(--primary-color);
-}
-
-.info-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.info-card h4 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
-}
-
-.info-card p {
-  margin: 0.5rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.info-card ul li {
-  margin: 0.5rem 0;
-}
-
-.info-card a:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 768px) {
-  .home-grid,
-  .dashboard-panels,
-  .dashboard-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .home-info-section {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+{% endif %}
 
 {% endblock %}
 

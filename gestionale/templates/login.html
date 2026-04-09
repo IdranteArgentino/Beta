@@ -7,15 +7,51 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
-  <main class="container narrow">
-    <h1>Login</h1>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <form method="post" class="card form-grid">
-      <label>Username<input name="username" required></label>
-      <label>Password<input type="password" name="password" required></label>
-      <button type="submit">Accedi</button>
-    </form>
+  <main class="login-page">
+    <section class="login-hero">
+      <p class="login-kicker">Gestione operativa</p>
+      <h1>Gestionale Web</h1>
+      <p class="login-description">Accedi al pannello per gestire clienti, progetti, materiali, operai e schede giornaliere in modo centralizzato.</p>
+      <ul class="login-points">
+        <li>Monitoraggio attivita e costi</li>
+        <li>Ricerca rapida per tutte le sezioni</li>
+        <li>Controllo accessi per ruoli</li>
+      </ul>
+    </section>
+
+    <section class="login-card-wrap">
+      <div class="login-card">
+        <h2>Accesso account</h2>
+        <p class="login-card-subtitle">Inserisci le tue credenziali</p>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form method="post" class="login-form" data-show-loader="true">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input id="username" name="username" autocomplete="username" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn-primary login-submit">Accedi</button>
+        </form>
+      </div>
+    </section>
   </main>
+  <div class="page-loader" id="loginPageLoader" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+  <script>
+    (function () {
+      const loginForm = document.querySelector('.login-form[data-show-loader="true"]');
+      const loader = document.getElementById('loginPageLoader');
+      if (!loginForm || !loader) return;
+      loginForm.addEventListener('submit', function () {
+        loader.classList.add('is-visible');
+        loader.setAttribute('aria-hidden', 'false');
+      });
+    })();
+  </script>
 </body>
 </html>
 

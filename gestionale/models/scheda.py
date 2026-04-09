@@ -21,16 +21,17 @@ class VoceMateriali:
         return self.quantita * self.prezzo_unitario_snapshot
 
 class Allegato:
-    def __init__(self, id_allegato: int, id_scheda: int, path: str):
+    def __init__(self, id_allegato: int, id_scheda: int, path: str, nome_file: str | None = None):
         self.id = id_allegato
         self.id_scheda = id_scheda
         self.path = path
+        self.nome_file = (nome_file or "").strip()
 
     def fileEsiste(self) -> bool:
         return os.path.exists(self.path)
 
     def getNomeFile(self) -> str:
-        return os.path.basename(self.path)
+        return self.nome_file or os.path.basename(self.path)
 
 class SchedaGiornaliera:
     def __init__(self, id_scheda: int, data: str, descrizione: str, id_progetto: int):

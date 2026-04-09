@@ -1,5 +1,6 @@
 """Gestore per operazioni di modifica e operazioni complesse su schede giornaliere."""
 import os
+from datetime import date, timedelta
 from ..database import create_connection
 from ..models import StatoEntita, StatoProgetto, SchedaGiornaliera, VoceMateriali, VoceOperai, Allegato
 
@@ -23,16 +24,23 @@ class GestoreSchede:
         if not self._verificaProgettoModificabile(id_progetto):
             raise PermissionError(f"Il progetto #{id_progetto} non è modificabile (completato o non trovato)")
 
+        descrizione_finale = (descrizione or "").strip()
+
         conn = self._get_conn()
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO schede_giornaliere (data, descrizione, id_progetto) VALUES (?, ?, ?)",
-            (data, descrizione, id_progetto),
+            (data, descrizione_finale, id_progetto),
         )
         conn.commit()
         new_id = cur.lastrowid
         conn.close()
-        return SchedaGiornaliera(new_id, data, descrizione, id_progetto)
+        return SchedaGiornaliera(new_id, data, descrizione_finale, id_progetto)
+
+    def prossimoNomeSchedaProgetto(self, id_progetto: int) -> str:
+        """Restituisce il nome progressivo (UI) della prossima scheda per il progetto."""
+        numero = self._conteggioSchedeProgetto(id_progetto) + 1
+        return f"Scheda n\u00b0 {numero}"
 
     def aggiungiScheda(self, data: str, descrizione: str, id_progetto: int) -> 'SchedaGiornaliera | None':
         """Alias compatibile per creare una nuova scheda (non solleva eccezioni)."""
@@ -45,23 +53,30 @@ class GestoreSchede:
             print(f"Errore nella creazione scheda: {e}")
             return None
 
-    def aggiungiAllegato(self, path: str, id_scheda: int = None) -> None:
-        """Aggiunge un allegato a una scheda."""
+    def aggiungiAllegato(self, path: str, id_scheda: int = None, nome_file: str | None = None) -> Allegato | None:
+        """Aggiunge un allegato a una scheda e restituisce l'allegato creato."""
         try:
             if id_scheda is None or not self._verificaSchedaModificabile(id_scheda):
-                return
+                return None
             if not self._verificaEsistenzaFile(path):
                 print("File non trovato")
-                return
+                return None
 
 
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("INSERT INTO allegati (id_scheda, path) VALUES (?, ?)", (id_scheda, path))
+            nome_file_clean = (nome_file or "").strip() or None
+            cur.execute(
+                "INSERT INTO allegati (id_scheda, path, nome_file) VALUES (?, ?, ?)",
+                (id_scheda, path, nome_file_clean),
+            )
             conn.commit()
+            new_id = cur.lastrowid
             conn.close()
+            return Allegato(new_id, id_scheda, path, nome_file_clean)
         except Exception as e:
             print(f"Errore nell'aggiunta allegato: {e}")
+            return None
 
     def assegnaOreOperaio(self, id_scheda: int, id_operaio: int, ore: float) -> VoceOperai | None:
         """Assegna ore a un operaio nella scheda e restituisce la voce creata."""
@@ -150,8 +165,67 @@ class GestoreSchede:
     def dashboardData(self) -> dict:
         """Restituisce i dati per la home dashboard: lavori settimana, ultimi completati, ultimi in corso, costi."""
         try:
+            today = date.today()
+            today_iso = today.isoformat()
+            current_start = (today - timedelta(days=6)).isoformat()
+            previous_start = (today - timedelta(days=13)).isoformat()
+            previous_end = (today - timedelta(days=7)).isoformat()
+            month_start = date(today.year, today.month, 1).isoformat()
+            last_30_start = (today - timedelta(days=29)).isoformat()
+
             conn = self._get_conn()
             cur = conn.cursor()
+
+            def _week_metrics(start_date: str, end_date: str) -> dict:
+                cur.execute(
+                    "SELECT COUNT(*) AS tot FROM schede_giornaliere WHERE data BETWEEN ? AND ?",
+                    (start_date, end_date),
+                )
+                schede = int(cur.fetchone()['tot'] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(vo.ore_lavorate * vo.costo_orario_snapshot), 0) AS tot
+                    FROM schede_giornaliere s
+                    JOIN voci_operai vo ON vo.id_scheda = s.id
+                    WHERE s.data BETWEEN ? AND ?
+                    """,
+                    (start_date, end_date),
+                )
+                cost_op = float(cur.fetchone()['tot'] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(vm.quantita * vm.prezzo_unitario_snapshot), 0) AS tot
+                    FROM schede_giornaliere s
+                    JOIN voci_materiali vm ON vm.id_scheda = s.id
+                    WHERE s.data BETWEEN ? AND ?
+                    """,
+                    (start_date, end_date),
+                )
+                cost_mat = float(cur.fetchone()['tot'] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(vo.ore_lavorate), 0) AS tot
+                    FROM schede_giornaliere s
+                    JOIN voci_operai vo ON vo.id_scheda = s.id
+                    WHERE s.data BETWEEN ? AND ?
+                    """,
+                    (start_date, end_date),
+                )
+                ore = float(cur.fetchone()['tot'] or 0)
+
+                return {
+                    'schede': schede,
+                    'costo': float(cost_op + cost_mat),
+                    'ore': ore,
+                }
+
+            def _delta(current: float, previous: float):
+                diff = float(current - previous)
+                pct = None if previous == 0 else float((diff / previous) * 100)
+                return diff, pct
 
             # Schede della settimana corrente
             cur.execute("""
@@ -234,6 +308,180 @@ class GestoreSchede:
             r = cur.fetchone()
             costo_settimana = float((r['c_op'] or 0) + (r['c_mat'] or 0))
 
+            cur.execute("""
+                SELECT
+                    COALESCE((
+                        SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_operai vo ON vo.id_scheda = s.id
+                        WHERE s.data >= ?
+                    ), 0) +
+                    COALESCE((
+                        SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot)
+                        FROM schede_giornaliere s
+                        JOIN voci_materiali vm ON vm.id_scheda = s.id
+                        WHERE s.data >= ?
+                    ), 0) AS tot
+            """, (month_start, month_start))
+            costo_mese = float(cur.fetchone()['tot'] or 0)
+
+            current_week = _week_metrics(current_start, today_iso)
+            previous_week = _week_metrics(previous_start, previous_end)
+
+            costo_delta, costo_delta_pct = _delta(current_week['costo'], previous_week['costo'])
+            schede_delta, schede_delta_pct = _delta(current_week['schede'], previous_week['schede'])
+
+            # KPI sintetici: produzione e anagrafiche
+            cur.execute("SELECT COUNT(*) AS tot FROM clienti WHERE stato = 'ATTIVO'")
+            clienti_attivi = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute("SELECT COUNT(*) AS tot FROM operai WHERE stato = 'ATTIVO'")
+            operai_attivi = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute("SELECT COUNT(*) AS tot FROM progetti WHERE stato = 'IN_CORSO'")
+            progetti_in_corso_count = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute("SELECT COUNT(*) AS tot FROM progetti WHERE stato = 'COMPLETATO'")
+            progetti_completati_count = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute("SELECT COUNT(*) AS tot FROM schede_giornaliere")
+            schede_totali = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute("SELECT COUNT(*) AS tot FROM progetti")
+            progetti_totali_count = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute(
+                """
+                SELECT COUNT(DISTINCT s.id_progetto) AS tot
+                FROM schede_giornaliere s
+                WHERE s.data >= ?
+                """,
+                (last_30_start,),
+            )
+            progetti_ultimo_mese_count = int((cur.fetchone()['tot']) or 0)
+
+            cur.execute(
+                """
+                SELECT
+                    p.id,
+                    p.nome_progetto,
+                    p.indirizzo_cantiere,
+                    MAX(s.data) AS ultima_scheda
+                FROM schede_giornaliere s
+                JOIN progetti p ON p.id = s.id_progetto
+                WHERE s.data >= ?
+                GROUP BY p.id, p.nome_progetto, p.indirizzo_cantiere
+                ORDER BY ultima_scheda DESC, p.nome_progetto COLLATE NOCASE ASC
+                LIMIT 6
+                """,
+                (last_30_start,),
+            )
+            progetti_ultimo_mese = [
+                {
+                    'id': r['id'],
+                    'nome_progetto': r['nome_progetto'],
+                    'indirizzo_cantiere': r['indirizzo_cantiere'],
+                    'ultima_scheda': r['ultima_scheda'],
+                }
+                for r in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                SELECT
+                    s.id,
+                    s.data,
+                    s.descrizione,
+                    s.id_progetto,
+                    p.nome_progetto,
+                    COALESCE((SELECT SUM(vo.ore_lavorate) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0) AS ore_totali,
+                    COALESCE((SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0)
+                    + COALESCE((SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot) FROM voci_materiali vm WHERE vm.id_scheda = s.id), 0) AS costo_totale
+                FROM schede_giornaliere s
+                LEFT JOIN progetti p ON s.id_progetto = p.id
+                WHERE s.data >= ?
+                ORDER BY s.data DESC, p.nome_progetto COLLATE NOCASE ASC, s.id DESC
+                """,
+                (current_start,),
+            )
+            recap_settimana = [
+                {
+                    'id': r['id'],
+                    'data': r['data'],
+                    'descrizione': r['descrizione'],
+                    'id_progetto': r['id_progetto'],
+                    'nome_progetto': r['nome_progetto'] or f"Progetto #{r['id_progetto']}",
+                    'ore_totali': float(r['ore_totali'] or 0),
+                    'costo_totale': float(r['costo_totale'] or 0),
+                }
+                for r in cur.fetchall()
+            ]
+
+            cur.execute(
+                """
+                SELECT
+                    s.id,
+                    s.data,
+                    s.descrizione,
+                    s.id_progetto,
+                    p.nome_progetto,
+                    COALESCE((SELECT SUM(vo.ore_lavorate) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0) AS ore_totali,
+                    COALESCE((SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0)
+                    + COALESCE((SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot) FROM voci_materiali vm WHERE vm.id_scheda = s.id), 0) AS costo_totale
+                FROM schede_giornaliere s
+                LEFT JOIN progetti p ON s.id_progetto = p.id
+                WHERE s.data = ? AND (p.stato = 'IN_CORSO' OR p.id IS NULL)
+                ORDER BY p.nome_progetto COLLATE NOCASE ASC, s.id DESC
+                LIMIT 6
+                """,
+                (today_iso,),
+            )
+            attivita_urgenti_oggi = [
+                {
+                    'id': r['id'],
+                    'data': r['data'],
+                    'descrizione': r['descrizione'],
+                    'id_progetto': r['id_progetto'],
+                    'nome_progetto': r['nome_progetto'] or f"Progetto #{r['id_progetto']}",
+                    'ore_totali': float(r['ore_totali'] or 0),
+                    'costo_totale': float(r['costo_totale'] or 0),
+                }
+                for r in cur.fetchall()
+            ]
+
+            if not attivita_urgenti_oggi:
+                cur.execute(
+                    """
+                    SELECT
+                        s.id,
+                        s.data,
+                        s.descrizione,
+                        s.id_progetto,
+                        p.nome_progetto,
+                        COALESCE((SELECT SUM(vo.ore_lavorate) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0) AS ore_totali,
+                        COALESCE((SELECT SUM(vo.ore_lavorate * vo.costo_orario_snapshot) FROM voci_operai vo WHERE vo.id_scheda = s.id), 0)
+                        + COALESCE((SELECT SUM(vm.quantita * vm.prezzo_unitario_snapshot) FROM voci_materiali vm WHERE vm.id_scheda = s.id), 0) AS costo_totale
+                    FROM schede_giornaliere s
+                    LEFT JOIN progetti p ON s.id_progetto = p.id
+                    WHERE s.data = ?
+                    ORDER BY p.nome_progetto COLLATE NOCASE ASC, s.id DESC
+                    LIMIT 6
+                    """,
+                    (today_iso,),
+                )
+                attivita_urgenti_oggi = [
+                    {
+                        'id': r['id'],
+                        'data': r['data'],
+                        'descrizione': r['descrizione'],
+                        'id_progetto': r['id_progetto'],
+                        'nome_progetto': r['nome_progetto'] or f"Progetto #{r['id_progetto']}",
+                        'ore_totali': float(r['ore_totali'] or 0),
+                        'costo_totale': float(r['costo_totale'] or 0),
+                    }
+                    for r in cur.fetchall()
+                ]
+
             conn.close()
             return {
                 'schede_settimana': schede_settimana,
@@ -241,6 +489,25 @@ class GestoreSchede:
                 'ultimi_in_corso': ultimi_in_corso,
                 'costo_in_corso': costo_in_corso,
                 'costo_settimana': costo_settimana,
+                'costo_mese': costo_mese,
+                'schede_settimana_count': len(schede_settimana),
+                'progetti_totali_count': progetti_totali_count,
+                'progetti_ultimo_mese_count': progetti_ultimo_mese_count,
+                'progetti_ultimo_mese': progetti_ultimo_mese,
+                'recap_settimana': recap_settimana,
+                'current_week': current_week,
+                'previous_week': previous_week,
+                'costo_delta': costo_delta,
+                'costo_delta_pct': costo_delta_pct,
+                'schede_delta': schede_delta,
+                'schede_delta_pct': schede_delta_pct,
+                'clienti_attivi': clienti_attivi,
+                'operai_attivi': operai_attivi,
+                'progetti_in_corso_count': progetti_in_corso_count,
+                'progetti_completati_count': progetti_completati_count,
+                'schede_totali': schede_totali,
+                'attivita_urgenti_oggi': attivita_urgenti_oggi,
+                'attivita_urgenti_oggi_count': len(attivita_urgenti_oggi),
             }
         except Exception as e:
             print(f"Errore nel recupero dati dashboard: {e}")
@@ -250,6 +517,25 @@ class GestoreSchede:
                 'ultimi_in_corso': [],
                 'costo_in_corso': 0.0,
                 'costo_settimana': 0.0,
+                'costo_mese': 0.0,
+                'schede_settimana_count': 0,
+                'progetti_totali_count': 0,
+                'progetti_ultimo_mese_count': 0,
+                'progetti_ultimo_mese': [],
+                'recap_settimana': [],
+                'clienti_attivi': 0,
+                'operai_attivi': 0,
+                'progetti_in_corso_count': 0,
+                'progetti_completati_count': 0,
+                'schede_totali': 0,
+                'current_week': {'schede': 0, 'costo': 0.0, 'ore': 0.0},
+                'previous_week': {'schede': 0, 'costo': 0.0, 'ore': 0.0},
+                'costo_delta': 0.0,
+                'costo_delta_pct': None,
+                'schede_delta': 0.0,
+                'schede_delta_pct': None,
+                'attivita_urgenti_oggi': [],
+                'attivita_urgenti_oggi_count': 0,
             }
 
     def listaSchede(self) -> list:
@@ -447,6 +733,52 @@ class GestoreSchede:
         except Exception as e:
             print(f"Errore rimozione allegato: {e}")
 
+    def trovaAllegato(self, id_allegato: int) -> Allegato | None:
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM allegati WHERE id = ?", (id_allegato,))
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                return None
+            return Allegato(row['id'], row['id_scheda'], row['path'], row['nome_file'])
+        except Exception as e:
+            print(f"Errore recupero allegato: {e}")
+            return None
+
+    def sostituisciAllegato(self, id_allegato: int, nuovo_path: str, nuovo_nome_file: str | None = None) -> bool:
+        try:
+            if not self._verificaEsistenzaFile(nuovo_path):
+                return False
+
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT id_scheda, path FROM allegati WHERE id = ?", (id_allegato,))
+            row = cur.fetchone()
+            if not row or not self._verificaSchedaModificabile(row['id_scheda']):
+                conn.close()
+                return False
+
+            nome_file_clean = (nuovo_nome_file or "").strip() or None
+            cur.execute(
+                "UPDATE allegati SET path = ?, nome_file = ? WHERE id = ?",
+                (nuovo_path, nome_file_clean, id_allegato),
+            )
+            conn.commit()
+            conn.close()
+
+            old_path = row['path']
+            if old_path and old_path != nuovo_path and os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+            return True
+        except Exception as e:
+            print(f"Errore sostituzione allegato: {e}")
+            return False
+
     def rimuoviVoceMateriale(self, id_scheda: int, id_materiale: int) -> None:
         """Rimuove un materiale da una scheda."""
         try:
@@ -504,7 +836,7 @@ class GestoreSchede:
             cur.execute("SELECT * FROM allegati WHERE id_scheda = ? ORDER BY id DESC", (id_scheda,))
             rows = cur.fetchall()
             conn.close()
-            return [Allegato(r['id'], r['id_scheda'], r['path']) for r in rows]
+            return [Allegato(r['id'], r['id_scheda'], r['path'], r['nome_file']) for r in rows]
         except Exception as e:
             print(f"Errore nel recupero allegati: {e}")
             return []
@@ -586,4 +918,12 @@ class GestoreSchede:
         row = cur.fetchone()
         conn.close()
         return row
+
+    def _conteggioSchedeProgetto(self, id_progetto: int) -> int:
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) AS tot FROM schede_giornaliere WHERE id_progetto = ?", (id_progetto,))
+        row = cur.fetchone()
+        conn.close()
+        return int(row['tot'] or 0)
 

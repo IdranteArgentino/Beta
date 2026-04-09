@@ -2,15 +2,15 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>✏️ Modifica Scheda Giornaliera</h1>
+    <h1>Modifica Scheda Giornaliera</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.data }}</p>
   </div>
-  <a href="{{ url_for('giornaliero_detail', item_id=item.id) }}" class="btn-secondary">← Torna al dettaglio</a>
+  <a href="{{ url_for('giornaliero_detail', item_id=item.id) }}" class="btn-secondary">Torna al dettaglio</a>
 </div>
 
 <div class="form-container">
   <form method="post" action="{{ url_for('giornaliero_edit', item_id=item.id) }}" class="form-card">
-    <h2>📋 Dati Scheda</h2>
+    <h2>Dati Scheda</h2>
 
     <div class="form-row">
       <div class="form-group">
@@ -29,7 +29,7 @@
     </div>
 
     <div class="form-actions">
-      <button type="submit" class="btn-primary">✓ Salva Modifiche</button>
+      <button type="submit" class="btn-primary">Salva Modifiche</button>
       <a href="{{ url_for('giornaliero_detail', item_id=item.id) }}" class="btn-cancel">Annulla</a>
     </div>
   </form>

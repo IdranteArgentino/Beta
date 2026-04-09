@@ -2,15 +2,15 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>✏️ Modifica Cliente</h1>
+    <h1>Modifica Cliente</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.ragione_sociale }}</p>
   </div>
-  <a href="{{ url_for('clienti_detail', item_id=item.id) }}" class="btn-secondary">← Torna al dettaglio</a>
+  <a href="{{ url_for('clienti_detail', item_id=item.id) }}" class="btn-secondary">Torna al dettaglio</a>
 </div>
 
 <div class="form-container">
   <form method="post" action="{{ url_for('clienti_edit', item_id=item.id) }}" class="form-card">
-    <h2>📋 Dati Cliente</h2>
+    <h2>Informazioni Cliente</h2>
 
     <div class="form-group">
       <label for="ragione_sociale">Ragione Sociale *</label>

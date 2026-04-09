@@ -2,15 +2,14 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>➕ Nuovo Operaio</h1>
-    <p class="subtitle">Aggiungi un nuovo operatore al sistema</p>
+    <h1>Nuovo Operaio</h1>
   </div>
-  <a href="{{ url_for('operai') }}" class="btn-secondary">← Torna alla lista</a>
+  <a href="{{ url_for('operai') }}" class="btn-secondary">Torna alla lista</a>
 </div>
 
 <div class="form-container">
   <form method="post" action="{{ url_for('operai_new') }}" class="form-card">
-    <h2>👷 Informazioni Operaio</h2>
+    <h2>Informazioni Operaio</h2>
 
     <div class="form-row">
       <div class="form-group">
@@ -40,7 +39,7 @@
     </div>
 
     <div class="form-actions">
-      <button type="submit" class="btn-primary">✓ Salva Operaio</button>
+      <button type="submit" class="btn-primary">Salva Operaio</button>
       <a href="{{ url_for('operai') }}" class="btn-cancel">Annulla</a>
     </div>
   </form>

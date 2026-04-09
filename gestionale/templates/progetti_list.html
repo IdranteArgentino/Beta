@@ -2,20 +2,18 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>🏗️ Progetti</h1>
-    <p class="subtitle">Gestione cantieri e commesse</p>
+    <h1>Progetti</h1>
   </div>
-  <a href="{{ url_for('progetti_new') }}" class="btn-primary">+ Nuovo Progetto</a>
+  <a href="{{ url_for('progetti_new') }}" class="btn-primary">Nuovo Progetto</a>
 </div>
 
 <div class="filters-section">
-  <form method="get" class="search-bar">
-    <input type="text" name="q" placeholder="🔍 Cerca per nome, indirizzo o ID..." value="{{ q }}" class="search-input">
+  <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
+    <input type="text" name="q" placeholder="Cerca per nome o indirizzo..." value="{{ q }}" class="search-input">
     <select name="sort" class="sort-select">
       <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
       <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
     </select>
-    <button type="submit" class="btn-search">Cerca</button>
   </form>
 </div>
 
@@ -25,7 +23,6 @@
       <thead>
         <tr>
           <th class="col-index">N°</th>
-          <th class="col-id">#ID</th>
           <th class="col-prog-nome">Nome Progetto</th>
           <th class="col-prog-cliente">Cliente</th>
           <th class="col-prog-indirizzo">Cantiere</th>
@@ -35,10 +32,17 @@
       </thead>
       <tbody>
         {% for p in items %}
+          <tr>
           <td class="col-index">{{ loop.index }}</td>
-          <td class="col-id"><span class="badge">{{ p.id }}</span></td>
           <td class="col-prog-nome"><strong>{{ p.nome_progetto }}</strong></td>
-          <td class="col-prog-cliente">Client #{{ p.id_cliente }}</td>
+          <td class="col-prog-cliente">
+            {% set cliente = clienti_by_id.get(p.id_cliente) %}
+            {% if cliente %}
+              {{ cliente.ragione_sociale }}
+            {% else %}
+              Cliente #{{ p.id_cliente }}
+            {% endif %}
+          </td>
           <td class="col-prog-indirizzo">{{ p.indirizzo_cantiere or '-' }}</td>
           <td class="col-stato">
             {% if p.isAttivo() %}

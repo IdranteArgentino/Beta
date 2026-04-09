@@ -1,22 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
+<div class="detail-page detail-page--progetti">
+<div class="page-header page-header--detail">
   <div>
-    <h1>🏗️ Dettaglio Progetto</h1>
+    <h1>Dettaglio Progetto</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.nome_progetto }}</p>
   </div>
   <div class="page-header-actions">
     <a href="{{ url_for('progetti') }}" class="btn-secondary">← Torna alla lista</a>
-    <a href="{{ url_for('progetti_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <a href="{{ url_for('progetti_edit', item_id=item.id) }}" class="btn-warning">Modifica</a>
     <form method="post" action="{{ url_for('progetti_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo progetto?" data-confirm-second="Seconda conferma: il progetto verra' eliminato in modo permanente.">
-      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+      <button type="submit" class="btn-danger">Elimina</button>
     </form>
   </div>
 </div>
 
-<div class="details-container">
+<div class="details-container details-container--detail">
   <div class="details-card">
-    <h2>📋 Informazioni Progetto</h2>
+    <h2>Informazioni Progetto</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Nome Progetto</label>
@@ -51,6 +52,13 @@
           </span>
           {% endif %}
         </p>
+        <form method="post" action="{{ url_for('progetti_change_stato', item_id=item.id) }}" class="status-edit-form">
+          <select name="stato" class="sort-select" aria-label="Cambia stato progetto">
+            <option value="IN_CORSO" {% if item.stato == 'IN_CORSO' %}selected{% endif %}>In Corso</option>
+            <option value="COMPLETATO" {% if item.stato == 'COMPLETATO' %}selected{% endif %}>Completato</option>
+          </select>
+          <button type="submit" class="btn-warning">Aggiorna stato</button>
+        </form>
       </div>
       {% if item.note %}
       <div class="detail-item full-width">
@@ -63,7 +71,7 @@
 
   {% if item.costo_totale > 0 or item.ore_totali > 0 %}
   <div class="details-card">
-    <h2>📊 Riepilogo Progetto</h2>
+    <h2>Riepilogo Progetto</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Ore Totali</label>
@@ -79,31 +87,32 @@
 
   <!-- Schede giornaliere del progetto -->
   <div class="details-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-      <h2 style="margin:0;">📋 Schede Giornaliere</h2>
+    <div class="details-card-header">
+      <h2>Schede Giornaliere</h2>
       {% if item.stato == 'IN_CORSO' %}
-      <a href="{{ url_for('giornaliero', project_ids=item.id) }}" class="btn-primary">+ Nuova Scheda</a>
+      <button type="button" class="btn-primary" id="openProjectNewSheetModal">+ Nuova Scheda</button>
       {% endif %}
     </div>
+    {% if next_sheet_name and item.stato == 'IN_CORSO' %}
+    <p class="subtitle details-subtitle">Prossima scheda: <strong>{{ next_sheet_name }}</strong></p>
+    {% endif %}
     {% if item.schede %}
     <div class="table-container">
       <table class="data-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th>Scheda</th>
             <th>Data</th>
-            <th>Descrizione</th>
             <th class="col-azioni">Azioni</th>
           </tr>
         </thead>
         <tbody>
           {% for s in item.schede %}
           <tr>
-            <td>{{ s.id }}</td>
+            <td><strong>{{ 'Scheda n\u00b0 ' ~ ((item.schede|length) - loop.index0) }}</strong></td>
             <td>{{ s.data }}</td>
-            <td>{{ s.descrizione or '–' }}</td>
             <td class="col-azioni">
-              <a href="{{ url_for('giornaliero_detail', item_id=s.id) }}" class="btn-secondary">👁 Apri</a>
+              <a href="{{ url_for('giornaliero_detail', item_id=s.id) }}" class="btn-secondary">Apri</a>
             </td>
           </tr>
           {% endfor %}
@@ -115,6 +124,75 @@
     {% endif %}
   </div>
 </div>
+</div>
+
+{% if item.stato == 'IN_CORSO' %}
+<div class="confirm-modal" id="projectNewSheetModal" aria-hidden="true">
+  <div class="confirm-modal__overlay" id="projectNewSheetOverlay"></div>
+  <div class="confirm-modal__dialog giornaliero-new-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="projectNewSheetTitle">
+    <h3 id="projectNewSheetTitle">Nuova scheda giornaliera</h3>
+    <form method="post" action="{{ url_for('giornaliero_new') }}" id="projectNewSheetForm">
+      <input type="hidden" name="id_progetto" value="{{ item.id }}">
+      <input type="hidden" name="from_project" value="{{ item.id }}">
+      <div class="form-group">
+        <label>Progetto</label>
+        <input type="text" value="{{ item.nome_progetto }}" readonly>
+      </div>
+      <div class="form-group">
+        <label for="projectNewSheetDate">Data</label>
+        <input type="date" id="projectNewSheetDate" name="data" required>
+      </div>
+      <div class="form-group">
+        <label for="projectNewSheetDescription">Descrizione (opzionale)</label>
+        <textarea id="projectNewSheetDescription" name="descrizione" rows="3" placeholder="Descrizione attività della giornata"></textarea>
+      </div>
+      <div class="confirm-modal__actions">
+        <button type="button" class="btn-cancel" id="projectNewSheetCancel">Annulla</button>
+        <button type="submit" class="btn-primary">Crea scheda</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const openBtn = document.getElementById('openProjectNewSheetModal');
+    const modal = document.getElementById('projectNewSheetModal');
+    const overlay = document.getElementById('projectNewSheetOverlay');
+    const cancelBtn = document.getElementById('projectNewSheetCancel');
+    const form = document.getElementById('projectNewSheetForm');
+    const dateInput = document.getElementById('projectNewSheetDate');
+
+    if (!openBtn || !modal || !overlay || !cancelBtn || !form || !dateInput) {
+      return;
+    }
+
+    function openModal() {
+      form.reset();
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      dateInput.value = now.toISOString().slice(0, 10);
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      dateInput.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    openBtn.addEventListener('click', openModal);
+    cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+  })();
+</script>
+{% endif %}
 
 {% endblock %}
 

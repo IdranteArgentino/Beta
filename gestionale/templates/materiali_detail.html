@@ -1,22 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
+<div class="detail-page detail-page--materiali">
+<div class="page-header page-header--detail">
   <div>
-    <h1>📦 Dettaglio Materiale</h1>
+    <h1>Dettaglio Materiale</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.descrizione }}</p>
   </div>
   <div class="page-header-actions">
     <a href="{{ url_for('materiali') }}" class="btn-secondary">← Torna alla lista</a>
-    <a href="{{ url_for('materiali_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <a href="{{ url_for('materiali_edit', item_id=item.id) }}" class="btn-warning">Modifica</a>
     <form method="post" action="{{ url_for('materiali_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo materiale?" data-confirm-second="Seconda conferma: il materiale verra' eliminato in modo permanente.">
-      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+      <button type="submit" class="btn-danger">Elimina</button>
     </form>
   </div>
 </div>
 
-<div class="details-container">
+<div class="details-container details-container--detail">
   <div class="details-card">
-    <h2>📋 Informazioni Materiale</h2>
+    <h2>Informazioni Materiale</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Descrizione</label>
@@ -57,7 +58,7 @@
 
   {% if item.numero_schede > 0 %}
   <div class="details-card">
-    <h2>📊 Storico Utilizzo</h2>
+    <h2>Storico Utilizzo</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Quantità Totale Usata</label>
@@ -74,6 +75,7 @@
     </div>
   </div>
   {% endif %}
+</div>
 </div>
 
 {% endblock %}

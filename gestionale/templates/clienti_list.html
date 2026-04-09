@@ -2,20 +2,18 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>👥 Clienti</h1>
-    <p class="subtitle">Gestione completa della lista clienti</p>
+    <h1>Clienti</h1>
   </div>
-  <a href="{{ url_for('clienti_new') }}" class="btn-primary">+ Nuovo Cliente</a>
+  <a href="{{ url_for('clienti_new') }}" class="btn-primary">Nuovo Cliente</a>
 </div>
 
 <div class="filters-section">
-  <form method="get" class="search-bar">
-    <input type="text" name="q" placeholder="🔍 Cerca per ragione sociale, nome, cognome o ID..." value="{{ q }}" class="search-input">
+  <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
+    <input type="text" name="q" placeholder="Cerca per ragione sociale, nome o cognome..." value="{{ q }}" class="search-input">
     <select name="sort" class="sort-select">
       <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
       <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
     </select>
-    <button type="submit" class="btn-search">Cerca</button>
   </form>
 </div>
 
@@ -25,7 +23,6 @@
     <thead>
       <tr>
         <th class="cl-index">N°</th>
-        <th class="cl-id">#ID</th>
         <th class="cl-ragione">Ragione Sociale</th>
         <th class="cl-nome">Nome</th>
         <th class="cl-cognome">Cognome</th>
@@ -37,8 +34,8 @@
     </thead>
     <tbody>
       {% for c in items %}
+      <tr>
         <td class="cl-index">{{ loop.index }}</td>
-        <td class="cl-id"><span class="badge">{{ c.id }}</span></td>
         <td class="cl-ragione"><strong>{{ c.ragione_sociale }}</strong></td>
         <td class="cl-nome">{{ c.nome or '-' }}</td>
         <td class="cl-cognome">{{ c.cognome or '-' }}</td>

@@ -135,9 +135,16 @@ def inizializza_db(db_file="data/gestionale.db"):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         id_scheda INTEGER NOT NULL,
         path TEXT NOT NULL,
+        nome_file TEXT,
         FOREIGN KEY (id_scheda) REFERENCES schede_giornaliere (id) ON DELETE CASCADE
     )
     """)
+
+    # Migration: aggiungi colonna nome_file se non esiste
+    try:
+        cursor.execute("ALTER TABLE allegati ADD COLUMN nome_file TEXT")
+    except:
+        pass
 
     # ===== CREAZIONE INDICI PER PERFORMANCE =====
     

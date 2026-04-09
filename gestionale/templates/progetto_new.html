@@ -2,18 +2,17 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>➕ Nuovo Progetto</h1>
-    <p class="subtitle">Aggiungi una nuova commessa/cantiere</p>
+    <h1>Nuovo Progetto</h1>
   </div>
-  <a href="{{ url_for('progetti') }}" class="btn-secondary">← Torna alla lista</a>
+  <a href="{{ url_for('progetti') }}" class="btn-secondary">Torna alla lista</a>
 </div>
 
 <div class="form-container">
   <form method="post" action="{{ url_for('progetti_new') }}" class="form-card">
-    <h2>🏗️ Informazioni Progetto</h2>
+    <h2>Informazioni Progetto</h2>
 
     {% if error %}
-    <div class="error">⚠️ {{ error }}</div>
+    <div class="error">{{ error }}</div>
     {% endif %}
 
     {% if preselect_cliente %}

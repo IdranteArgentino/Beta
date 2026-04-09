@@ -2,20 +2,18 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>📦 Materiali</h1>
-    <p class="subtitle">Gestione magazzino e risorse</p>
+    <h1>Materiali</h1>
   </div>
-  <a href="{{ url_for('materiali_new') }}" class="btn-primary">+ Nuovo Materiale</a>
+  <a href="{{ url_for('materiali_new') }}" class="btn-primary">Nuovo Materiale</a>
 </div>
 
 <div class="filters-section">
-  <form method="get" class="search-bar">
-    <input type="text" name="q" placeholder="🔍 Cerca per descrizione o ID..." value="{{ q }}" class="search-input">
+  <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
+    <input type="text" name="q" placeholder="Cerca per descrizione..." value="{{ q }}" class="search-input">
     <select name="sort" class="sort-select">
       <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
       <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
     </select>
-    <button type="submit" class="btn-search">Cerca</button>
   </form>
 </div>
 
@@ -25,7 +23,6 @@
       <thead>
         <tr>
           <th class="col-index">N°</th>
-          <th class="col-id">#ID</th>
           <th class="col-descrizione">Descrizione</th>
           <th class="col-unita">Unità</th>
           <th class="col-prezzo">Prezzo Unitario</th>
@@ -35,8 +32,8 @@
       </thead>
       <tbody>
         {% for m in items %}
+        <tr>
           <td class="col-index">{{ loop.index }}</td>
-          <td class="col-id"><span class="badge">{{ m.id }}</span></td>
           <td class="col-descrizione"><strong>{{ m.descrizione }}</strong></td>
           <td class="col-unita">{{ m.unita_misura }}</td>
           <td class="col-prezzo">€ {{ m.prezzo_unitario_base|round(2) }}</td>

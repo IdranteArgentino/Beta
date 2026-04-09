@@ -2,16 +2,14 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>⚙️ Gestione Utenti (Admin)</h1>
-    <p class="subtitle">Amministrazione account e permessi</p>
+    <h1>Utenti</h1>
   </div>
-  <button class="btn-primary" onclick="toggleNewForm()">+ Nuovo Utente</button>
+  <a href="{{ url_for('utenti_new') }}" class="btn-primary">Nuovo Utente</a>
 </div>
 
 <div class="filters-section">
-  <form method="get" class="search-bar">
+  <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
     <input type="text" name="q" placeholder="🔍 Cerca per username, nome o cognome..." value="{{ q }}" class="search-input">
-    <button type="submit" class="btn-search">Cerca</button>
   </form>
 </div>
 
@@ -59,7 +57,6 @@
       <thead>
         <tr>
           <th class="col-index">N°</th>
-          <th class="col-id">#ID</th>
           <th class="col-username">Username</th>
           <th class="col-nome-ut">Nome</th>
           <th class="col-cognome-ut">Cognome</th>
@@ -70,14 +67,14 @@
       </thead>
       <tbody>
         {% for u in items %}
+        <tr>
           <td class="col-index">{{ loop.index }}</td>
-          <td class="col-id"><span class="badge">{{ u.id }}</span></td>
           <td class="col-username"><strong>{{ u.username }}</strong></td>
           <td class="col-nome-ut">{{ u.nome }}</td>
           <td class="col-cognome-ut">{{ u.cognome }}</td>
           <td class="col-ruolo">
             {% if u.ruolo.value == 'ADMIN' %}
-            <span class="badge" style="background-color: #fbbf24; color: #92400e;">ADMIN</span>
+            <span class="badge badge-role-admin">ADMIN</span>
             {% else %}
             <span class="badge">Staff</span>
             {% endif %}

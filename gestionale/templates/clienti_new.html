@@ -2,15 +2,14 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>➕ Nuovo Cliente</h1>
-    <p class="subtitle">Aggiungi un nuovo cliente al sistema</p>
+    <h1>Nuovo Cliente</h1>
   </div>
-  <a href="{{ url_for('clienti') }}" class="btn-secondary">← Torna alla lista</a>
+  <a href="{{ url_for('clienti') }}" class="btn-secondary">Torna alla lista</a>
 </div>
 
 <div class="form-container">
   <form method="post" action="{{ url_for('clienti_new') }}" class="form-card">
-    <h2>📋 Informazioni Cliente</h2>
+    <h2>Informazioni Cliente</h2>
 
     <div class="form-group">
       <label for="ragione_sociale">Ragione Sociale *</label>
@@ -44,7 +43,7 @@
     </div>
 
     <div class="form-actions">
-      <button type="submit" class="btn-primary">✓ Salva Cliente</button>
+      <button type="submit" class="btn-primary">Salva Cliente</button>
       <a href="{{ url_for('clienti') }}" class="btn-cancel">Annulla</a>
     </div>
   </form>

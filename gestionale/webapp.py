@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from functools import wraps
 from uuid import uuid4
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for, abort
+from flask import Flask, flash, redirect, render_template, request, session, url_for, abort, send_file
 from werkzeug.utils import secure_filename
 
 from .azienda import Azienda
@@ -14,7 +14,7 @@ from .gestori.gestore_operai import GestoreOperai
 from .gestori.gestore_progetti import GestoreProgetti
 from .gestori.gestore_schede import GestoreSchede
 from .gestori.gestore_utenti import GestoreUtenti
-from .models import RuoloUtente, StatoEntita
+from .models import RuoloUtente, StatoEntita, StatoProgetto
 
 
 def create_app(db_path=None):
@@ -64,9 +64,25 @@ def create_app(db_path=None):
     @app.context_processor
     def inject_globals():
         u = get_current_user()
+        endpoint = request.endpoint or ""
+        section_map = {
+            "home": "home",
+            "clienti": "clienti",
+            "operai": "operai",
+            "materiali": "materiali",
+            "progetti": "progetti",
+            "giornaliero": "giornaliero",
+            "utenti": "utenti",
+        }
+        active_section = ""
+        for prefix, section in section_map.items():
+            if endpoint.startswith(prefix):
+                active_section = section
+                break
         return {
             "current_user": u,
             "is_admin": bool(u and u.ruolo == RuoloUtente.ADMIN),
+            "active_section": active_section,
         }
 
     @app.route("/")
@@ -90,10 +106,32 @@ def create_app(db_path=None):
                 return render_template("login.html", error="Credenziali non valide o utente disattivato")
         return render_template("login.html")
 
-    @app.route("/logout")
+    @app.route("/logout", methods=["GET", "POST"])
     def logout():
         session.clear()
         return redirect(url_for("login"))
+
+    @app.route("/profilo/cambia-password", methods=["POST"])
+    @login_required
+    def profilo_cambia_password():
+        utente = get_current_user()
+        if not utente:
+            return redirect(url_for("login"))
+
+        password_attuale = request.form.get("password_attuale", "")
+        password_nuova = request.form.get("password_nuova", "")
+        password_conferma = request.form.get("password_conferma", "")
+
+        ok, messaggio = gestori["utenti"].cambiaPasswordUtente(
+            utente,
+            password_attuale,
+            password_nuova,
+            password_conferma,
+        )
+
+        flash(messaggio, "success" if ok else "error")
+        destinazione = request.referrer or url_for("home")
+        return redirect(destinazione)
 
     @app.route("/clienti")
     @login_required
@@ -145,6 +183,7 @@ def create_app(db_path=None):
             telefono=request.form.get("telefono"),
             note=request.form.get("note"),
         )
+        flash("Cliente aggiornato correttamente.", "success")
         return redirect(url_for("clienti_detail", item_id=item_id))
 
     @app.route("/clienti/<int:item_id>/delete", methods=["POST"])
@@ -205,6 +244,7 @@ def create_app(db_path=None):
             costo_orario_base=float(cost) if cost else None,
             note=request.form.get("note"),
         )
+        flash("Operaio aggiornato correttamente.", "success")
         return redirect(url_for("operai_detail", item_id=item_id))
 
     @app.route("/operai/<int:item_id>/delete", methods=["POST"])
@@ -263,6 +303,7 @@ def create_app(db_path=None):
             prezzo_unitario_base=float(prezzo) if prezzo else None,
             note=request.form.get("note"),
         )
+        flash("Materiale aggiornato correttamente.", "success")
         return redirect(url_for("materiali_detail", item_id=item_id))
 
     @app.route("/materiali/<int:item_id>/delete", methods=["POST"])
@@ -280,7 +321,8 @@ def create_app(db_path=None):
         if sort == "latest":
             items = sorted(items, key=lambda p: p.id or 0, reverse=True)
         clienti = gestori["clienti"].listaClienti()
-        return render_template("progetti_list.html", items=items, clienti=clienti, q=q, sort=sort)
+        clienti_by_id = {c.id: c for c in clienti}
+        return render_template("progetti_list.html", items=items, clienti=clienti, clienti_by_id=clienti_by_id, q=q, sort=sort)
 
     @app.route("/progetti/new", methods=["GET", "POST"])
     @login_required
@@ -326,7 +368,29 @@ def create_app(db_path=None):
         clienti = gestori["clienti"].listaClienti()
         clienti_by_id = {c.id: c for c in clienti}
         cliente = clienti_by_id.get(item.get("id_cliente"))
-        return render_template("progetti_detail.html", item=item, clienti=clienti, cliente=cliente)
+        next_sheet_name = gestori["schede"].prossimoNomeSchedaProgetto(item_id)
+        return render_template(
+            "progetti_detail.html",
+            item=item,
+            clienti=clienti,
+            cliente=cliente,
+            next_sheet_name=next_sheet_name,
+        )
+
+    @app.route("/progetti/<int:item_id>/stato", methods=["POST"])
+    @login_required
+    def progetti_change_stato(item_id):
+        item = gestori["progetti"].dettaglioProgetto(item_id)
+        if not item:
+            abort(404)
+        raw_state = (request.form.get("stato") or "").strip().upper()
+        try:
+            nuovo_stato = StatoProgetto(raw_state)
+            gestori["progetti"].cambiaStato(item_id, nuovo_stato)
+            flash("Stato progetto aggiornato correttamente.", "success")
+        except ValueError:
+            flash("Stato progetto non valido.", "error")
+        return redirect(url_for("progetti_detail", item_id=item_id))
 
     @app.route("/progetti/<int:item_id>/edit", methods=["GET", "POST"])
     @login_required
@@ -345,6 +409,7 @@ def create_app(db_path=None):
             indirizzo_cantiere=request.form.get("indirizzo_cantiere"),
             note=request.form.get("note"),
         )
+        flash("Progetto aggiornato correttamente.", "success")
         return redirect(url_for("progetti_detail", item_id=item_id))
 
     @app.route("/progetti/<int:item_id>/delete", methods=["POST"])
@@ -391,6 +456,22 @@ def create_app(db_path=None):
         else:
             progetti = all_progetti
 
+        page_raw = request.args.get("page", "1").strip()
+        try:
+            page = max(1, int(page_raw))
+        except ValueError:
+            page = 1
+
+        per_page = 40
+        total_projects = len(progetti)
+        total_pages = max(1, (total_projects + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
+
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        progetti_page = progetti[start_index:end_index]
+
         days = []
         cursor_day = start_day
         while cursor_day <= end_day:
@@ -419,11 +500,16 @@ def create_app(db_path=None):
             "giornaliero_list.html",
             all_progetti=all_progetti,
             progetti=progetti,
+            progetti_page=progetti_page,
             days=days,
             cell_map=cell_map,
             start_date_value=start_day.isoformat(),
             end_date_value=end_day.isoformat(),
             selected_project_ids=sorted(selected_project_ids),
+            page=page,
+            total_pages=total_pages,
+            total_projects=total_projects,
+            per_page=per_page,
         )
 
     def _prepare_giornaliero_detail(item_id: int):
@@ -441,11 +527,20 @@ def create_app(db_path=None):
     @login_required
     def giornaliero_new():
         id_progetto = int(request.form.get("id_progetto", "0") or 0)
-        gestori["schede"].aggiungiScheda(
+        descrizione = request.form.get("descrizione", "")
+        nuova_scheda = gestori["schede"].aggiungiScheda(
             request.form.get("data", ""),
-            request.form.get("descrizione", ""),
+            descrizione,
             id_progetto,
         )
+        from_project = request.form.get("from_project", "").strip()
+        if nuova_scheda:
+            flash("Scheda giornaliera creata correttamente.", "success")
+            return redirect(url_for("giornaliero_detail", item_id=nuova_scheda.id))
+
+        flash("Impossibile creare la scheda: verifica che il progetto sia in corso.", "error")
+        if from_project.isdigit():
+            return redirect(url_for("progetti_detail", item_id=int(from_project)))
         return redirect(url_for("giornaliero"))
 
     @app.route("/giornaliero/<int:item_id>")
@@ -468,10 +563,17 @@ def create_app(db_path=None):
     def giornaliero_add_operaio(item_id):
         if not gestori["schede"].dettaglioScheda(item_id):
             abort(404)
-        id_operaio = int(request.form.get("id_operaio", "0") or 0)
-        ore = float(request.form.get("ore_lavorate", "0") or 0)
-        gestori["schede"].assegnaOreOperaio(item_id, id_operaio, ore)
-        return redirect(url_for("giornaliero_detail", item_id=item_id))
+        try:
+            id_operaio = int(request.form.get("id_operaio", "0") or 0)
+            ore = float(request.form.get("ore_lavorate", "0") or 0)
+            voce = gestori["schede"].assegnaOreOperaio(item_id, id_operaio, ore)
+            if voce:
+                flash("Operaio aggiunto/aggiornato correttamente nella scheda.", "success")
+            else:
+                flash("Impossibile aggiungere l'operaio: verifica stato progetto/operaio.", "error")
+        except ValueError:
+            flash("Ore non valide: inserisci un valore maggiore di 0.", "error")
+        return redirect(url_for("giornaliero_detail", item_id=item_id) + "#operai")
 
     @app.route("/giornaliero/<int:item_id>/operai/<int:id_operaio>/delete", methods=["POST"])
     @login_required
@@ -484,10 +586,17 @@ def create_app(db_path=None):
     def giornaliero_add_materiale(item_id):
         if not gestori["schede"].dettaglioScheda(item_id):
             abort(404)
-        id_materiale = int(request.form.get("id_materiale", "0") or 0)
-        quantita = float(request.form.get("quantita", "0") or 0)
-        gestori["schede"].scaricaMateriale(item_id, id_materiale, quantita)
-        return redirect(url_for("giornaliero_detail", item_id=item_id))
+        try:
+            id_materiale = int(request.form.get("id_materiale", "0") or 0)
+            quantita = float(request.form.get("quantita", "0") or 0)
+            voce = gestori["schede"].scaricaMateriale(item_id, id_materiale, quantita)
+            if voce:
+                flash("Materiale aggiunto/aggiornato correttamente nella scheda.", "success")
+            else:
+                flash("Impossibile aggiungere il materiale: verifica stato progetto/materiale.", "error")
+        except ValueError:
+            flash("Quantita non valida: inserisci un valore maggiore di 0.", "error")
+        return redirect(url_for("giornaliero_detail", item_id=item_id) + "#materiali")
 
     @app.route("/giornaliero/<int:item_id>/materiali/<int:id_materiale>/delete", methods=["POST"])
     @login_required
@@ -503,17 +612,97 @@ def create_app(db_path=None):
 
         uploaded = request.files.get("file")
         if not uploaded or not uploaded.filename:
-            return redirect(url_for("giornaliero_detail", item_id=item_id))
+            flash("Seleziona un file da caricare.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+
+        nome_visualizzato = (request.form.get("nome_file") or "").strip()
+        if not nome_visualizzato:
+            flash("Inserisci un nome per l'allegato.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
 
         uploads_dir = os.path.join(data_dir, "allegati")
         os.makedirs(uploads_dir, exist_ok=True)
 
         original_name = secure_filename(uploaded.filename)
-        unique_name = f"scheda_{item_id}_{uuid4().hex}_{original_name}"
+        ext = os.path.splitext(original_name)[1]
+        safe_display_name = secure_filename(nome_visualizzato)
+        if not safe_display_name:
+            flash("Nome allegato non valido.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+        if ext and not os.path.splitext(safe_display_name)[1]:
+            safe_display_name = f"{safe_display_name}{ext}"
+
+        unique_name = f"scheda_{item_id}_{uuid4().hex}_{safe_display_name}"
         save_path = os.path.join(uploads_dir, unique_name)
         uploaded.save(save_path)
-        gestori["schede"].aggiungiAllegato(save_path, item_id)
-        return redirect(url_for("giornaliero_detail", item_id=item_id))
+        allegato = gestori["schede"].aggiungiAllegato(save_path, item_id, safe_display_name)
+        if allegato:
+            flash("Allegato caricato correttamente.", "success")
+        else:
+            if os.path.exists(save_path):
+                try:
+                    os.remove(save_path)
+                except OSError:
+                    pass
+            flash("Impossibile caricare allegato: verifica lo stato del progetto/scheda.", "error")
+        return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+
+    @app.route("/giornaliero/<int:item_id>/allegati/<int:id_allegato>/show")
+    @login_required
+    def giornaliero_show_allegato(item_id, id_allegato):
+        allegato = gestori["schede"].trovaAllegato(id_allegato)
+        if not allegato or allegato.id_scheda != item_id:
+            abort(404)
+        if not allegato.fileEsiste():
+            flash("File allegato non trovato sul disco.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+        return send_file(allegato.path, as_attachment=False, download_name=allegato.getNomeFile())
+
+    @app.route("/giornaliero/<int:item_id>/allegati/<int:id_allegato>/change", methods=["POST"])
+    @login_required
+    def giornaliero_change_allegato(item_id, id_allegato):
+        allegato = gestori["schede"].trovaAllegato(id_allegato)
+        if not allegato or allegato.id_scheda != item_id:
+            abort(404)
+
+        uploaded = request.files.get("file")
+        if not uploaded or not uploaded.filename:
+            flash("Seleziona un file da usare in sostituzione.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+
+        nome_visualizzato = (request.form.get("nome_file") or "").strip()
+        if not nome_visualizzato:
+            flash("Inserisci il nuovo nome allegato.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+
+        uploads_dir = os.path.join(data_dir, "allegati")
+        os.makedirs(uploads_dir, exist_ok=True)
+
+        original_name = secure_filename(uploaded.filename)
+        ext = os.path.splitext(original_name)[1]
+        safe_display_name = secure_filename(nome_visualizzato)
+        if not safe_display_name:
+            flash("Nome allegato non valido.", "error")
+            return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
+        if ext and not os.path.splitext(safe_display_name)[1]:
+            safe_display_name = f"{safe_display_name}{ext}"
+
+        unique_name = f"scheda_{item_id}_{uuid4().hex}_{safe_display_name}"
+        save_path = os.path.join(uploads_dir, unique_name)
+        uploaded.save(save_path)
+
+        ok = gestori["schede"].sostituisciAllegato(id_allegato, save_path, safe_display_name)
+        if ok:
+            flash("Allegato aggiornato correttamente.", "success")
+        else:
+            if os.path.exists(save_path):
+                try:
+                    os.remove(save_path)
+                except OSError:
+                    pass
+            flash("Impossibile aggiornare allegato: verifica lo stato del progetto/scheda.", "error")
+
+        return redirect(url_for("giornaliero_detail", item_id=item_id) + "#allegati")
 
     @app.route("/giornaliero/<int:item_id>/allegati/<int:id_allegato>/delete", methods=["POST"])
     @login_required
@@ -535,6 +724,7 @@ def create_app(db_path=None):
             request.form.get("descrizione", ""),
             item_id,
         )
+        flash("Scheda giornaliera aggiornata correttamente.", "success")
         return redirect(url_for("giornaliero_detail", item_id=item_id))
 
     @app.route("/giornaliero/<int:item_id>/delete", methods=["POST"])
@@ -594,6 +784,7 @@ def create_app(db_path=None):
             ruolo=RuoloUtente(request.form.get("ruolo")) if request.form.get("ruolo") else None,
             stato=StatoEntita(request.form.get("stato")) if request.form.get("stato") else None,
         )
+        flash("Utente aggiornato correttamente.", "success")
         return redirect(url_for("utenti_detail", item_id=item_id))
 
     @app.route("/utenti/<int:item_id>/reset-password", methods=["POST"])
@@ -605,6 +796,7 @@ def create_app(db_path=None):
             abort(404)
         admin = get_current_user()
         gestori["utenti"].resetForzatoPassword(detail["username"], admin)
+        flash("Password resettata correttamente.", "success")
         return redirect(url_for("utenti_edit", item_id=item_id))
 
 

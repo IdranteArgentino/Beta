@@ -2,10 +2,10 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>✏️ Modifica Utente</h1>
+    <h1>Modifica Utente</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.username }}</p>
   </div>
-  <a href="{{ url_for('utenti_detail', item_id=item.id) }}" class="btn-secondary">← Torna al dettaglio</a>
+  <a href="{{ url_for('utenti_detail', item_id=item.id) }}" class="btn-secondary">Torna al dettaglio</a>
 </div>
 
 <div class="form-container">
@@ -51,62 +51,13 @@
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('utenti_reset_password', item_id=item.id) }}" id="resetPasswordForm" class="form-card">
+  <form method="post" action="{{ url_for('utenti_reset_password', item_id=item.id) }}" id="resetPasswordForm" class="form-card" data-double-confirm="true" data-confirm-first="Vuoi resettare la password di {{ item.username }}?" data-confirm-button="Conferma reset password">
     <h2>🔐 Sicurezza Account</h2>
     <p class="subtitle">Resetta la password dell'utente a <strong>{{ item.username }}</strong>.</p>
     <div class="form-actions">
-      <button type="button" class="btn-warning" id="openResetModalBtn">↻ Reset Password</button>
+      <button type="submit" class="btn-warning">↻ Reset Password</button>
     </div>
   </form>
 </div>
-
-<div class="confirm-modal" id="resetConfirmModal" aria-hidden="true">
-  <div class="confirm-modal__overlay"></div>
-  <div class="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle">
-    <h3 id="resetModalTitle">Conferma reset password</h3>
-    <p id="resetModalText">Vuoi resettare la password di <strong>{{ item.username }}</strong>?</p>
-    <div class="confirm-modal__actions">
-      <button type="button" class="btn-cancel" id="resetModalCancelBtn">Annulla</button>
-      <button type="button" class="btn-danger" id="resetModalConfirmBtn">Continua</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  (function () {
-    const modal = document.getElementById('resetConfirmModal');
-    const openBtn = document.getElementById('openResetModalBtn');
-    const cancelBtn = document.getElementById('resetModalCancelBtn');
-    const confirmBtn = document.getElementById('resetModalConfirmBtn');
-    const text = document.getElementById('resetModalText');
-    const form = document.getElementById('resetPasswordForm');
-
-    function closeModal() {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-      text.innerHTML = 'Vuoi resettare la password di <strong>{{ item.username }}</strong>?';
-      confirmBtn.textContent = 'Conferma reset';
-    }
-
-    function openModal() {
-      modal.classList.add('is-open');
-      modal.setAttribute('aria-hidden', 'false');
-    }
-
-    openBtn.addEventListener('click', openModal);
-    cancelBtn.addEventListener('click', closeModal);
-    modal.querySelector('.confirm-modal__overlay').addEventListener('click', closeModal);
-
-    confirmBtn.addEventListener('click', function () {
-      form.submit();
-    });
-
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-        closeModal();
-      }
-    });
-  })();
-</script>
 {% endblock %}
 

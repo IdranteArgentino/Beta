@@ -1,44 +1,112 @@
-# Gestionale Web (Flask)
+# Gestionale Web
 
-Questa versione usa Flask e sostituisce le vecchie viste PyQt.
+Applicazione web Flask per la gestione operativa di:
 
-## Avvio rapido
+- clienti
+- operai
+- materiali
+- progetti
+- schede giornaliere (con voci ore/materiali e allegati)
+- utenti (solo admin)
 
-1. Installa dipendenze:
+## Requisiti
 
-```bash
+- Python 3.11+ (consigliato 3.12)
+- Sistema operativo: Windows, Linux, macOS
+
+## Installazione
+
+### 1) Crea e attiva ambiente virtuale (consigliato)
+
+```powershell
+cd C:\Users\nikol\Downloads\gestionale
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2) Installa dipendenze
+
+```powershell
 pip install -r requirements.txt
 ```
 
-2. Avvia l'app:
+## Avvio applicazione
 
-```bash
+```powershell
+cd C:\Users\nikol\Downloads\gestionale
 python -m gestionale.main
 ```
 
-3. Apri il browser su:
+Poi apri nel browser:
 
 - http://127.0.0.1:5000/login
 
-## Credenziali admin di default
+## Credenziali iniziali
+
+Alla prima inizializzazione DB viene creato automaticamente l'utente admin:
 
 - username: `admin`
-- password: `admin`
+- password: `password`
 
-## Sezioni disponibili
+## Struttura progetto
 
-- Clienti
-- Operai
-- Materiali
-- Progetti
-- Giornaliero
-- Utenti (solo ADMIN)
+```text
+gestionale/
+  gestionale/
+    main.py                # entrypoint
+    webapp.py              # route Flask e wiring app
+    database.py            # inizializzazione schema DB
+    azienda.py             # accesso dati principale
+    gestori/               # logica applicativa per dominio
+    models/                # modelli dominio
+    templates/             # template Jinja2
+    static/                # css/js statici
+    data/
+      gestionale.db        # database SQLite
+      allegati/            # file allegati schede
+    tests/                 # test unitari
+  requirements.txt
+  README.md
+```
 
-Ogni sezione include:
+## Sezioni funzionali
 
-- barra di ricerca
-- ordinamento alfabetico / ultimi inseriti (dove previsto)
-- aggiunta elemento
-- dettaglio elemento
-- modifica ed eliminazione
+- **Home**: dashboard con riepilogo economico e attività recenti
+- **Clienti**: anagrafica, dettaglio, modifica, cancellazione
+- **Operai**: anagrafica, storico voci lavoro, costi/ore
+- **Materiali**: anagrafica e prezzi unitari
+- **Progetti**: creazione, stato (in corso/completato), schede collegate
+- **Giornaliero**: schede giornaliere con:
+  - voci operai (ore e costo snapshot)
+  - voci materiali (quantità e prezzo snapshot)
+  - allegati (upload, mostra, sostituisci, rimuovi)
+- **Utenti (admin)**: gestione utenti, reset password, stato/ruolo
+
+## Dati e allegati
+
+- Il DB è SQLite in: `gestionale/data/gestionale.db`
+- Gli allegati sono file reali in: `gestionale/data/allegati/`
+- Se elimini un file allegato dal filesystem, la riga DB può restare ma il file non sarà più apribile da UI
+
+## Test
+
+Esecuzione test `unittest`:
+
+```powershell
+cd C:\Users\nikol\Downloads\gestionale
+python -m unittest discover -s gestionale\tests
+```
+
+Se vuoi usare `pytest` (opzionale), installalo manualmente:
+
+```powershell
+pip install pytest
+python -m pytest gestionale\tests -q
+```
+
+## Note operative
+
+- L'app crea automaticamente la cartella `gestionale/data/` se assente.
+- Le migrazioni leggere sono gestite in `database.py` (es. colonne aggiunte se mancanti).
+- In sviluppo l'app parte con `debug=True` da `gestionale/main.py`.
 

@@ -1,22 +1,23 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header">
+<div class="detail-page detail-page--operai">
+<div class="page-header page-header--detail">
   <div>
-    <h1>👷 Dettaglio Operaio</h1>
+    <h1>Dettaglio Operaio</h1>
     <p class="subtitle">ID: <strong>#{{ item.id }}</strong> | {{ item.nome }} {{ item.cognome }}</p>
   </div>
   <div class="page-header-actions">
     <a href="{{ url_for('operai') }}" class="btn-secondary">← Torna alla lista</a>
-    <a href="{{ url_for('operai_edit', item_id=item.id) }}" class="btn-warning">✏️ Modifica</a>
+    <a href="{{ url_for('operai_edit', item_id=item.id) }}" class="btn-warning">Modifica</a>
     <form method="post" action="{{ url_for('operai_delete', item_id=item.id) }}" data-double-confirm="true" data-confirm-first="Vuoi davvero eliminare questo operaio?" data-confirm-second="Seconda conferma: l'operaio verra' eliminato in modo permanente.">
-      <button type="submit" class="btn-danger">🗑️ Elimina</button>
+      <button type="submit" class="btn-danger">Elimina</button>
     </form>
   </div>
 </div>
 
-<div class="details-container">
+<div class="details-container details-container--detail">
   <div class="details-card">
-    <h2>👤 Informazioni Operaio</h2>
+    <h2>Informazioni Operaio</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Nome</label>
@@ -61,7 +62,7 @@
 
   {% if item.numero_schede > 0 %}
   <div class="details-card">
-    <h2>📊 Riepilogo Lavoro</h2>
+    <h2>Riepilogo Lavoro</h2>
     <div class="details-grid">
       <div class="detail-item">
         <label>Ore Totali Lavorate</label>
@@ -82,7 +83,7 @@
   <!-- Storico voci ordinate per data desc (ultima modifica prima) -->
   {% if item.storico_voci %}
   <div class="details-card">
-    <h2>📋 Storico Voci (ultime modifiche prima)</h2>
+    <h2>Storico Voci (ultime modifiche prima)</h2>
     <div class="table-container">
       <table class="data-table">
         <thead>
@@ -106,7 +107,7 @@
             <td>€ {{ v.costo_orario_snapshot|round(2) }}/h</td>
             <td>€ {{ v.costo_totale|round(2) }}</td>
             <td class="col-azioni">
-              <a href="{{ url_for('giornaliero_detail', item_id=v.id_scheda) }}" class="btn-secondary">👁 Apri</a>
+              <a href="{{ url_for('giornaliero_detail', item_id=v.id_scheda) }}" class="btn-secondary">Apri</a>
             </td>
           </tr>
           {% endfor %}
@@ -119,6 +120,7 @@
     <p class="table-info">Nessuna voce di lavoro registrata per questo operaio.</p>
   </div>
   {% endif %}
+</div>
 </div>
 
 {% endblock %}
