@@ -326,6 +326,17 @@ class TestGestoreProgetti(BaseTestGestori):
         self.g_progetti.eliminaProgetto(prog.id)
         self.assertIsNone(self.azienda.trova_progetto(prog.id))
 
+    def test_modifica_progetto_bloccata_se_completato(self):
+        prog = self.g_progetti.creaProgetto("Bloccato", self.id_cliente, "Via Prima", "Note iniziali")
+        self.g_progetti.cambiaStato(prog.id, StatoProgetto.COMPLETATO)
+
+        self.g_progetti.modificaProgetto(prog.id, nome_progetto="Nome Non Applicato", indirizzo_cantiere="Via Nuova")
+
+        aggiornato = self.azienda.trova_progetto(prog.id)
+        self.assertEqual(aggiornato.nome_progetto, "Bloccato")
+        self.assertEqual(aggiornato.indirizzo_cantiere, "Via Prima")
+        self.assertTrue(aggiornato.isCompletato())
+
 
 # ===========================================================
 # TEST GESTORE SCHEDE (+ Snapshot prezzi)

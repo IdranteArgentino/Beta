@@ -181,6 +181,9 @@ class GestoreProgetti:
                          note: str = None, stato: 'StatoProgetto' = None) -> None:
         """Modifica i dati di un progetto."""
         try:
+            if not self._verificaProgettoModificabile(id_progetto):
+                return
+
             conn = self._get_conn()
             cur = conn.cursor()
             updates = []
@@ -320,3 +323,27 @@ class GestoreProgetti:
             print(f"Errore nel calcolo costo materiali: {e}")
             return 0.0
 
+    def _verificaProgettoModificabile(self, id_progetto: int) -> bool:
+        """Un progetto e' modificabile se esiste e non e' COMPLETATO."""
+        progetto = self._trova_progetto(id_progetto)
+        return bool(progetto and progetto.isModificabile())
+
+    def _trova_progetto(self, id_progetto: int) -> 'Progetto | None':
+        try:
+            conn = self._get_conn()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM progetti WHERE id = ?", (id_progetto,))
+            row = cur.fetchone()
+            conn.close()
+            if not row:
+                return None
+            return Progetto(
+                row['id'],
+                row['nome_progetto'],
+                row['id_cliente'],
+                row['indirizzo_cantiere'],
+                row['note'],
+                StatoProgetto(row['stato']),
+            )
+        except Exception:
+            return None

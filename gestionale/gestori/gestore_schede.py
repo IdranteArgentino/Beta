@@ -2,7 +2,7 @@
 import os
 from datetime import date, timedelta
 from ..database import create_connection
-from ..models import StatoEntita, StatoProgetto, SchedaGiornaliera, VoceMateriali, VoceOperai, Allegato
+from ..models import StatoEntita, StatoProgetto, Progetto, SchedaGiornaliera, VoceMateriali, VoceOperai, Allegato
 
 
 class GestoreSchede:
@@ -850,17 +850,6 @@ class GestoreSchede:
         except Exception:
             return False
 
-    def _trova_scheda_by_allegato(self, id_allegato: int):
-        try:
-            conn = self._get_conn()
-            cur = conn.cursor()
-            cur.execute("SELECT id_scheda FROM allegati WHERE id = ?", (id_allegato,))
-            row = cur.fetchone()
-            conn.close()
-            return row['id_scheda'] if row else None
-        except Exception:
-            return None
-
     # ==========================================
     # METODI PRIVATI
     # ==========================================
@@ -878,12 +867,20 @@ class GestoreSchede:
         return os.path.exists(path)
 
     def _verificaProgettoModificabile(self, id_progetto: int) -> bool:
-        """Verifica se il progetto è aperto e quindi modificabile (es. IN_CORSO)."""
+        """Verifica da model se il progetto e' modificabile (non COMPLETATO)."""
         try:
             p = self._trova_progetto(id_progetto)
-            if p and p['stato'] == StatoProgetto.IN_CORSO.value:
-                return True
-            return False
+            if not p:
+                return False
+            progetto = Progetto(
+                p['id'],
+                p['nome_progetto'],
+                p['id_cliente'],
+                p['indirizzo_cantiere'],
+                p['note'],
+                StatoProgetto(p['stato']),
+            )
+            return progetto.isModificabile()
         except Exception:
             return False
 

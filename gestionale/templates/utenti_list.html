@@ -9,46 +9,8 @@
 
 <div class="filters-section">
   <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
-    <input type="text" name="q" placeholder="🔍 Cerca per username, nome o cognome..." value="{{ q }}" class="search-input">
+    <input type="text" name="q" placeholder="Cerca..." value="{{ q }}" class="search-input">
   </form>
-</div>
-
-<!-- Form aggiunta nuovo utente (nascosto di default) -->
-<div id="newFormContainer" style="display: none; margin-bottom: 2rem;">
-  <div class="form-container">
-    <form method="post" action="{{ url_for('utenti_new') }}" class="form-card">
-      <h2>➕ Nuovo Utente</h2>
-
-      <div class="form-group">
-        <label for="username">Username *</label>
-        <input type="text" id="username" name="username" placeholder="Es. mario.rossi" required>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="nome">Nome *</label>
-          <input type="text" id="nome" name="nome" placeholder="Es. Mario" required>
-        </div>
-        <div class="form-group">
-          <label for="cognome">Cognome *</label>
-          <input type="text" id="cognome" name="cognome" placeholder="Es. Rossi" required>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="ruolo">Ruolo *</label>
-        <select id="ruolo" name="ruolo" required>
-          <option value="STAFF">Staff</option>
-          <option value="ADMIN">Amministratore</option>
-        </select>
-      </div>
-
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">✓ Crea Utente</button>
-        <button type="button" class="btn-cancel" onclick="toggleNewForm()">Annulla</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <div class="table-container">
@@ -62,7 +24,7 @@
           <th class="col-cognome-ut">Cognome</th>
           <th class="col-ruolo">Ruolo</th>
           <th class="col-stato-ut">Stato</th>
-          <th class="col-azioni">Azioni</th>
+          <th class="col-azioni">Dettagli</th>
         </tr>
       </thead>
       <tbody>
@@ -105,20 +67,11 @@
       <div class="empty-icon">⚙️</div>
       <h3>Nessun utente trovato</h3>
       <p>{% if q %}Prova a modificare i filtri di ricerca{% else %}Inizia aggiungendo un nuovo utente{% endif %}</p>
-      <button class="btn-primary" onclick="toggleNewForm()">+ Nuovo Utente</button>
+      <a href="{{ url_for('utenti_new') }}" class="btn-primary">+ Nuovo Utente</a>
     </div>
   {% endif %}
 </div>
 
-<script>
-function toggleNewForm() {
-  const container = document.getElementById('newFormContainer');
-  container.style.display = container.style.display === 'none' ? 'block' : 'none';
-  if (container.style.display === 'block') {
-    container.scrollIntoView({ behavior: 'smooth' });
-  }
-}
-</script>
 
 {% endblock %}
 

@@ -49,43 +49,52 @@ class GestoreUtenti:
         return utente
 
     def aggiungiUtente(self, username: str, nome: str, cognome: str,
-                       ruolo: RuoloUtente, utente_creatore: Utente) -> None:
-        """Aggiunge un nuovo utente al sistema (richiede admin)."""
+                       ruolo: RuoloUtente, utente_creatore: Utente) -> Utente:
+        """Aggiunge un nuovo utente al sistema (richiede admin) e restituisce l'utente creato."""
+        if getattr(utente_creatore, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono aggiungere utenti")
+
+        username_clean = (username or "").strip()
+        nome_norm = self._normalizza(nome)
+        cognome_norm = self._normalizza(cognome)
+
+        if not username_clean:
+            raise ValueError("Username obbligatorio")
+        if not nome_norm or not cognome_norm:
+            raise ValueError("Nome e cognome sono obbligatori")
+
+        ruolo_finale = ruolo if isinstance(ruolo, RuoloUtente) else RuoloUtente.STAFF
+
+        # Password iniziale coerente con il reset forzato.
+        password_iniziale = "cambiami123"
+        password_hash = self._hashPassword(password_iniziale)
+
+        conn = self._get_conn()
         try:
-            if getattr(utente_creatore, 'ruolo', None) != RuoloUtente.ADMIN:
-                print("Permesso negato: solo amministratori possono aggiungere utenti")
-                return
-
-            nome_norm = self._normalizza(nome)
-            cognome_norm = self._normalizza(cognome)
-
-            if not self._validaPassword(username):
-                print("Password default (username) non valida")
-                return
-
-            password_hash = self._hashPassword(username)
-            if ruolo == RuoloUtente.ADMIN:
-                nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.ADMIN)
-            else:
-                nuovo_utente = Utente(None, username, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, RuoloUtente.STAFF)
-
-            conn = self._get_conn()
             cur = conn.cursor()
+            cur.execute("SELECT 1 FROM utenti WHERE username = ?", (username_clean,))
+            if cur.fetchone():
+                raise ValueError(f"Username '{username_clean}' gia' esistente")
+
             cur.execute(
                 """
                 INSERT INTO utenti (username, nome, cognome, password_hash, stato, ruolo)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    nuovo_utente.username, nuovo_utente.nome, nuovo_utente.cognome,
-                    nuovo_utente.password, nuovo_utente.stato.value, nuovo_utente.ruolo.value
-                )
+                    username_clean,
+                    nome_norm,
+                    cognome_norm,
+                    password_hash,
+                    StatoEntita.ATTIVO.value,
+                    ruolo_finale.value,
+                ),
             )
             conn.commit()
-            nuovo_utente.id = cur.lastrowid
+            new_id = cur.lastrowid
+            return Utente(new_id, username_clean, nome_norm, cognome_norm, password_hash, StatoEntita.ATTIVO, ruolo_finale)
+        finally:
             conn.close()
-        except Exception as e:
-            print(f"Errore nell'aggiunta utente: {e}")
 
     def cambiaPasswordUtente(self, utente: Utente, password_vecchia: str,
                              password_nuova: str, password_conferma: str) -> tuple[bool, str]:
@@ -215,8 +224,13 @@ class GestoreUtenti:
             raise PermissionError("Permesso negato: solo amministratori possono riattivare utenti")
         self.modificaUtente(username, stato=StatoEntita.ATTIVO)
 
-    def eliminaUtente(self, username: str) -> None:
-        """Elimina definitivamente un utente dal sistema."""
+    def eliminaUtente(self, username: str, utente_corrente: Utente) -> None:
+        """Elimina definitivamente un utente dal sistema (solo admin, no self-delete)."""
+        if getattr(utente_corrente, 'ruolo', None) != RuoloUtente.ADMIN:
+            raise PermissionError("Permesso negato: solo amministratori possono eliminare utenti")
+        if getattr(utente_corrente, 'username', None) == username:
+            raise ValueError("Non e' possibile eliminare il proprio account")
+
         try:
             conn = self._get_conn()
             cur = conn.cursor()

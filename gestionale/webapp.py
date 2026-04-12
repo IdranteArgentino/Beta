@@ -742,20 +742,39 @@ def create_app(db_path=None):
         items = gestori["utenti"].cercaUtente(q, admin) if q else gestori["utenti"].listaUtenti(admin)
         return render_template("utenti_list.html", items=items, q=q)
 
-    @app.route("/utenti/new", methods=["POST"])
+    @app.route("/utenti/new", methods=["GET", "POST"])
     @login_required
     @admin_required
     def utenti_new():
+        if request.method == "GET":
+            return render_template("utenti_new.html")
+
         admin = get_current_user()
-        ruolo = RuoloUtente(request.form.get("ruolo", "STAFF"))
-        gestori["utenti"].aggiungiUtente(
-            request.form.get("username", ""),
-            request.form.get("nome", ""),
-            request.form.get("cognome", ""),
-            ruolo,
-            admin,
-        )
-        return redirect(url_for("utenti"))
+        ruolo_raw = request.form.get("ruolo", "STAFF")
+        form_data = {
+            "username": request.form.get("username", ""),
+            "nome": request.form.get("nome", ""),
+            "cognome": request.form.get("cognome", ""),
+            "ruolo": ruolo_raw,
+        }
+
+        try:
+            ruolo = RuoloUtente(ruolo_raw)
+            gestori["utenti"].aggiungiUtente(
+                form_data["username"],
+                form_data["nome"],
+                form_data["cognome"],
+                ruolo,
+                admin,
+            )
+            flash("Utente creato correttamente. Password iniziale: cambiami123", "success")
+            return redirect(url_for("utenti"))
+        except (ValueError, PermissionError) as e:
+            flash(str(e), "error")
+            return render_template("utenti_new.html", form_data=form_data)
+        except Exception:
+            flash("Errore durante la creazione utente.", "error")
+            return render_template("utenti_new.html", form_data=form_data)
 
     @app.route("/utenti/<int:item_id>")
     @login_required
@@ -809,7 +828,13 @@ def create_app(db_path=None):
         if detail and current and detail.get("username") == current.username:
             return redirect(url_for("utenti_detail", item_id=item_id))
         if detail:
-            gestori["utenti"].eliminaUtente(detail["username"])
+            try:
+                gestori["utenti"].eliminaUtente(detail["username"], current)
+                flash("Utente eliminato correttamente.", "success")
+            except PermissionError:
+                flash("Permesso negato: solo amministratori possono eliminare utenti.", "error")
+            except ValueError as exc:
+                flash(str(exc), "error")
         return redirect(url_for("utenti"))
 
     return app

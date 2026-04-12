@@ -21,7 +21,8 @@ class Progetto:
         return self.stato == StatoProgetto.COMPLETATO
 
     def isModificabile(self) -> bool:
-        return self.isInCorso()
+        # Regola di dominio: un progetto completato e' bloccato.
+        return not self.isCompletato()
 
     def haSchede(self) -> bool:
         return len(self.schede_giornaliere) > 0

@@ -9,7 +9,7 @@
 
 <div class="filters-section">
   <form method="get" class="search-bar" data-auto-submit="true" data-auto-delay="450">
-    <input type="text" name="q" placeholder="Cerca per nome, cognome o alias..." value="{{ q }}" class="search-input">
+    <input type="text" name="q" placeholder="Cerca..." value="{{ q }}" class="search-input">
     <select name="sort" class="sort-select">
       <option value="alpha" {% if sort=='alpha' %}selected{% endif %}>Alfabetico</option>
       <option value="latest" {% if sort=='latest' %}selected{% endif %}>Ultimi inseriti</option>
@@ -28,7 +28,7 @@
           <th class="col-alias">Alias</th>
           <th class="col-costo">Costo Orario</th>
           <th class="col-stato">Stato</th>
-          <th class="col-azioni">Azioni</th>
+          <th class="col-azioni">Dettagli</th>
         </tr>
       </thead>
       <tbody>
