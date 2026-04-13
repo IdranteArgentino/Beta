@@ -39,22 +39,6 @@
         <label>Telefono</label>
         <p>{{ item.telefono or '-' }}</p>
       </div>
-      <div class="detail-item">
-        <label>Stato</label>
-        <p>
-          {% if item.stato == 'ATTIVO' %}
-          <span class="status-indicator">
-            <span class="status-dot attivo"></span>
-            <span class="badge badge-attivo">Attivo</span>
-          </span>
-          {% else %}
-          <span class="status-indicator">
-            <span class="status-dot disattivato"></span>
-            <span class="badge badge-disattivato">Disattivato</span>
-          </span>
-          {% endif %}
-        </p>
-      </div>
       {% if item.note %}
       <div class="detail-item full-width">
         <label>Note</label>

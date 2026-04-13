@@ -189,7 +189,15 @@ def create_app(db_path=None):
     @app.route("/clienti/<int:item_id>/delete", methods=["POST"])
     @login_required
     def clienti_delete(item_id):
-        gestori["clienti"].eliminaCliente(item_id)
+        esito = gestori["clienti"].eliminaCliente(item_id)
+        if esito == "soft_deleted":
+            flash("Cliente disattivato: ha progetti associati e non puo' essere eliminato definitivamente.", "success")
+        elif esito == "hard_deleted":
+            flash("Cliente eliminato definitivamente.", "success")
+        elif esito == "not_found":
+            flash("Cliente non trovato.", "error")
+        else:
+            flash("Errore durante l'eliminazione del cliente.", "error")
         return redirect(url_for("clienti"))
 
     @app.route("/operai")
@@ -250,7 +258,15 @@ def create_app(db_path=None):
     @app.route("/operai/<int:item_id>/delete", methods=["POST"])
     @login_required
     def operai_delete(item_id):
-        gestori["operai"].eliminaOperaio(item_id)
+        esito = gestori["operai"].eliminaOperaio(item_id)
+        if esito == "soft_deleted":
+            flash("Operaio disattivato: ha voci associate e non puo' essere eliminato definitivamente.", "success")
+        elif esito == "hard_deleted":
+            flash("Operaio eliminato definitivamente.", "success")
+        elif esito == "not_found":
+            flash("Operaio non trovato.", "error")
+        else:
+            flash("Errore durante l'eliminazione dell'operaio.", "error")
         return redirect(url_for("operai"))
 
     @app.route("/materiali")
@@ -309,7 +325,15 @@ def create_app(db_path=None):
     @app.route("/materiali/<int:item_id>/delete", methods=["POST"])
     @login_required
     def materiali_delete(item_id):
-        gestori["materiali"].eliminaMateriale(item_id)
+        esito = gestori["materiali"].eliminaMateriale(item_id)
+        if esito == "soft_deleted":
+            flash("Materiale disattivato: e' usato in schede esistenti e non puo' essere eliminato definitivamente.", "success")
+        elif esito == "hard_deleted":
+            flash("Materiale eliminato definitivamente.", "success")
+        elif esito == "not_found":
+            flash("Materiale non trovato.", "error")
+        else:
+            flash("Errore durante l'eliminazione del materiale.", "error")
         return redirect(url_for("materiali"))
 
     @app.route("/progetti")
@@ -415,7 +439,15 @@ def create_app(db_path=None):
     @app.route("/progetti/<int:item_id>/delete", methods=["POST"])
     @login_required
     def progetti_delete(item_id):
-        gestori["progetti"].eliminaProgetto(item_id)
+        esito = gestori["progetti"].eliminaProgetto(item_id)
+        if esito == "soft_deleted":
+            flash("Progetto disattivato: ha schede associate e non puo' essere eliminato definitivamente.", "success")
+        elif esito == "hard_deleted":
+            flash("Progetto eliminato definitivamente.", "success")
+        elif esito == "not_found":
+            flash("Progetto non trovato.", "error")
+        else:
+            flash("Errore durante l'eliminazione del progetto.", "error")
         return redirect(url_for("progetti"))
 
     @app.route("/giornaliero")
@@ -829,8 +861,13 @@ def create_app(db_path=None):
             return redirect(url_for("utenti_detail", item_id=item_id))
         if detail:
             try:
-                gestori["utenti"].eliminaUtente(detail["username"], current)
-                flash("Utente eliminato correttamente.", "success")
+                esito = gestori["utenti"].eliminaUtente(detail["username"], current)
+                if esito == "hard_deleted":
+                    flash("Utente eliminato correttamente.", "success")
+                elif esito == "not_found":
+                    flash("Utente non trovato.", "error")
+                else:
+                    flash("Errore durante l'eliminazione utente.", "error")
             except PermissionError:
                 flash("Permesso negato: solo amministratori possono eliminare utenti.", "error")
             except ValueError as exc:

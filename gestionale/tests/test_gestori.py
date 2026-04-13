@@ -123,6 +123,15 @@ class TestGestoreUtenti(BaseTestGestori):
         utenti = self.gestore.listaUtenti()
         self.assertGreaterEqual(len(utenti), 1)  # almeno admin
 
+    def test_elimina_utente_hard_delete(self):
+        admin = self.gestore.login("admin", "admin")
+        self._crea_utente_test("to_delete", "Utente", "DaCancellare", RuoloUtente.STAFF)
+
+        esito = self.gestore.eliminaUtente("to_delete", admin)
+
+        self.assertEqual(esito, "hard_deleted")
+        self.assertIsNone(self.gestore._trova_utente("to_delete"))
+
 
 # ===========================================================
 # TEST GESTORE CLIENTI
@@ -175,6 +184,21 @@ class TestGestoreClienti(BaseTestGestori):
         # Dopo eliminazione, la lista è vuota o il cliente è disattivato
         trovato = self.azienda.trova_cliente(cid)
         self.assertTrue(trovato is None or not trovato.isAttivo())
+
+    def test_elimina_cliente_soft_delete_se_con_progetti(self):
+        g_progetti = GestoreProgetti(self.azienda)
+        res = self.gestore.aggiungiCliente("Cliente Soft", "", "", "")
+        cid = res["cliente"].id
+        g_progetti.creaProgetto("Progetto Cliente Soft", cid, "", "")
+
+        esito = self.gestore.eliminaCliente(cid)
+
+        self.assertEqual(esito, "soft_deleted")
+        cliente = self.azienda.trova_cliente(cid)
+        self.assertIsNotNone(cliente)
+        self.assertEqual(cliente.stato, StatoEntita.DISATTIVATO)
+        ids_attivi = [c.id for c in self.gestore.listaClienti()]
+        self.assertNotIn(cid, ids_attivi)
 
 
 # ===========================================================
@@ -229,6 +253,41 @@ class TestGestoreOperai(BaseTestGestori):
         op = self.azienda.trova_operaio(oid)
         self.assertEqual(op.costo_orario_base, 30.0)
 
+    def test_elimina_operaio_hard_delete_se_senza_voci(self):
+        res = self.gestore.aggiungiOperaio("Hard", "Delete", 20.0, "", "")
+        oid = res["operaio"].id
+
+        esito = self.gestore.eliminaOperaio(oid)
+
+        self.assertEqual(esito, "hard_deleted")
+        self.assertIsNone(self.azienda.trova_operaio(oid))
+
+    def test_elimina_operaio_soft_delete_se_con_voci(self):
+        g_clienti = GestoreClienti(self.azienda)
+        g_progetti = GestoreProgetti(self.azienda)
+        g_schede = GestoreSchede(self.azienda)
+
+        res_op = self.gestore.aggiungiOperaio("Soft", "Delete", 22.0, "", "")
+        oid = res_op["operaio"].id
+
+        res_cliente = g_clienti.aggiungiCliente("Cliente Soft", "", "", "")
+        id_cliente = res_cliente["cliente"].id
+        progetto = g_progetti.creaProgetto("Progetto Soft", id_cliente, "", "")
+        scheda = g_schede.creaScheda(progetto.id, "2026-01-10", "Test soft delete")
+        voce = g_schede.assegnaOreOperaio(scheda.id, oid, 4.0)
+        self.assertIsNotNone(voce)
+
+        esito = self.gestore.eliminaOperaio(oid)
+
+        self.assertEqual(esito, "soft_deleted")
+        op_db = self.azienda.trova_operaio(oid)
+        self.assertIsNotNone(op_db)
+        self.assertEqual(op_db.stato, StatoEntita.DISATTIVATO)
+
+        ids_attivi = [o.id for o in self.gestore.listaOperai()]
+        self.assertNotIn(oid, ids_attivi)
+        self.assertEqual(len(self.gestore.cercaOperaio("Soft")), 0)
+
 
 # ===========================================================
 # TEST GESTORE MATERIALI
@@ -272,6 +331,31 @@ class TestGestoreMateriali(BaseTestGestori):
         self.gestore.modificaMateriale(mat.id, {"prezzo_unitario_base": 15.0})
         aggiornato = self.azienda.trova_materiale(mat.id)
         self.assertEqual(aggiornato.prezzo_unitario_base, 15.0)
+
+    def test_elimina_materiale_soft_delete_se_con_voci(self):
+        g_clienti = GestoreClienti(self.azienda)
+        g_progetti = GestoreProgetti(self.azienda)
+        g_operai = GestoreOperai(self.azienda)
+        g_schede = GestoreSchede(self.azienda)
+
+        mat = self.gestore.aggiungiMateriale("Mat Soft", "kg", 3.5, "")
+        res_cliente = g_clienti.aggiungiCliente("Cliente Mat", "", "", "")
+        id_cliente = res_cliente["cliente"].id
+        progetto = g_progetti.creaProgetto("Progetto Mat", id_cliente, "", "")
+        scheda = g_schede.creaScheda(progetto.id, "2026-01-11", "Uso materiale")
+
+        res_op = g_operai.aggiungiOperaio("Op", "Test", 20.0, "", "")
+        g_schede.assegnaOreOperaio(scheda.id, res_op["operaio"].id, 1.0)
+        voce = g_schede.scaricaMateriale(scheda.id, mat.id, 2.0)
+        self.assertIsNotNone(voce)
+
+        esito = self.gestore.eliminaMateriale(mat.id)
+
+        self.assertEqual(esito, "soft_deleted")
+        materiale = self.azienda.trova_materiale(mat.id)
+        self.assertIsNotNone(materiale)
+        self.assertEqual(materiale.stato, StatoEntita.DISATTIVATO)
+        self.assertEqual(len(self.gestore.cercaMateriale("Mat Soft")), 0)
 
 
 # ===========================================================
@@ -336,6 +420,20 @@ class TestGestoreProgetti(BaseTestGestori):
         self.assertEqual(aggiornato.nome_progetto, "Bloccato")
         self.assertEqual(aggiornato.indirizzo_cantiere, "Via Prima")
         self.assertTrue(aggiornato.isCompletato())
+
+    def test_elimina_progetto_soft_delete_se_con_schede(self):
+        prog = self.g_progetti.creaProgetto("Soft Project", self.id_cliente, "", "")
+        g_schede = GestoreSchede(self.azienda)
+        g_schede.creaScheda(prog.id, "2026-01-12", "Prima scheda")
+
+        esito = self.g_progetti.eliminaProgetto(prog.id)
+
+        self.assertEqual(esito, "soft_deleted")
+        aggiornato = self.azienda.trova_progetto(prog.id)
+        self.assertIsNotNone(aggiornato)
+        self.assertEqual(aggiornato.stato, StatoProgetto.DISATTIVO)
+        ids_visibili = [p.id for p in self.g_progetti.listaProgetti()]
+        self.assertNotIn(prog.id, ids_visibili)
 
 
 # ===========================================================

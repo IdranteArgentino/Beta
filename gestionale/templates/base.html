@@ -34,7 +34,6 @@
         <p class="profile-menu__title">{{ current_user.getNomeCompleto() }}</p>
         <p class="profile-menu__info">@{{ current_user.username }}</p>
         <p class="profile-menu__info">Ruolo: {{ current_user.ruolo.value }}</p>
-        <p class="profile-menu__info">Stato: {{ current_user.stato.value }}</p>
         <button type="button" class="btn-secondary profile-menu__password-open" id="openPasswordModal">Cambia password</button>
         <form method="post" action="{{ url_for('logout') }}" data-double-confirm="true" data-confirm-first="Vuoi davvero effettuare il logout?" data-confirm-button="Conferma logout">
           <button type="submit" class="btn-danger profile-menu__logout">Logout</button>

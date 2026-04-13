@@ -69,21 +69,24 @@ class GestoreOperai:
             return {"operaio": None, "warning": warning}
 
     def cercaOperaio(self, termine_ricerca: str) -> list:
-        """Cerca operai per id, nome, cognome, nome completo o alias."""
+        """Cerca operai attivi per id, nome, cognome, nome completo o alias."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
             query = """
-                SELECT * FROM operai 
-                WHERE nome LIKE ?
-                   OR cognome LIKE ?
-                   OR alias LIKE ?
-                   OR (nome || ' ' || cognome) LIKE ?
-                   OR CAST(id AS TEXT) LIKE ?
+                SELECT * FROM operai
+                WHERE stato = ?
+                  AND (
+                        nome LIKE ?
+                     OR cognome LIKE ?
+                     OR alias LIKE ?
+                     OR (nome || ' ' || cognome) LIKE ?
+                     OR CAST(id AS TEXT) LIKE ?
+                  )
                 ORDER BY cognome COLLATE NOCASE ASC, nome COLLATE NOCASE ASC
             """
             termine = f"%{(termine_ricerca or '').strip()}%"
-            cur.execute(query, (termine, termine, termine, termine, termine))
+            cur.execute(query, (StatoEntita.ATTIVO.value, termine, termine, termine, termine, termine))
             rows = cur.fetchall()
             conn.close()
 
@@ -98,11 +101,14 @@ class GestoreOperai:
             return []
 
     def listaOperai(self) -> list:
-        """Restituisce la lista di tutti gli operai."""
+        """Restituisce la lista di tutti gli operai attivi."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM operai ORDER BY cognome COLLATE NOCASE ASC, nome COLLATE NOCASE ASC")
+            cur.execute(
+                "SELECT * FROM operai WHERE stato = ? ORDER BY cognome COLLATE NOCASE ASC, nome COLLATE NOCASE ASC",
+                (StatoEntita.ATTIVO.value,),
+            )
             rows = cur.fetchall()
             conn.close()
             return [
@@ -206,16 +212,30 @@ class GestoreOperai:
         except Exception as e:
             print(f"Errore nella modifica operaio: {e}")
 
-    def eliminaOperaio(self, id_operaio: int) -> None:
-        """Elimina un operaio."""
+    def eliminaOperaio(self, id_operaio: int) -> str:
+        """Elimina un operaio: soft delete se ha voci associate, hard delete altrimenti."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
+
+            cur.execute("SELECT id FROM operai WHERE id = ?", (id_operaio,))
+            if not cur.fetchone():
+                conn.close()
+                return "not_found"
+
+            if self._ha_voci_operai_associate(cur, id_operaio):
+                cur.execute("UPDATE operai SET stato = ? WHERE id = ?", (StatoEntita.DISATTIVATO.value, id_operaio))
+                conn.commit()
+                conn.close()
+                return "soft_deleted"
+
             cur.execute("DELETE FROM operai WHERE id = ?", (id_operaio,))
             conn.commit()
             conn.close()
+            return "hard_deleted"
         except Exception as e:
             print(f"Errore nell'eliminazione operaio: {e}")
+            return "error"
 
     def storicoOreOperaio(self, id_operaio: int) -> list:
         """Ottiene lo storico delle schede giornaliere di un operaio (ordinate per data desc, id desc)."""
@@ -362,4 +382,7 @@ class GestoreOperai:
             print(f"Errore nel recupero ore per progetto: {e}")
             return {}
 
-
+    def _ha_voci_operai_associate(self, cur, id_operaio: int) -> bool:
+        """Verifica se un operaio e' presente in almeno una voce operaio."""
+        cur.execute("SELECT 1 FROM voci_operai WHERE id_operaio = ? LIMIT 1", (id_operaio,))
+        return cur.fetchone() is not None

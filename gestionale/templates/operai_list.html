@@ -27,7 +27,6 @@
           <th class="col-cognome-op">Cognome</th>
           <th class="col-alias">Alias</th>
           <th class="col-costo">Costo Orario</th>
-          <th class="col-stato">Stato</th>
           <th class="col-azioni">Dettagli</th>
         </tr>
       </thead>
@@ -39,19 +38,6 @@
           <td class="col-cognome-op">{{ o.cognome }}</td>
           <td class="col-alias">{{ o.alias or '-' }}</td>
           <td class="col-costo">€ {{ o.costo_orario_base|round(2) }}/h</td>
-          <td class="col-stato">
-            {% if o.isAttivo() %}
-            <span class="status-indicator">
-              <span class="status-dot attivo"></span>
-              <span class="badge badge-attivo">Attivo</span>
-            </span>
-            {% else %}
-            <span class="status-indicator">
-              <span class="status-dot disattivato"></span>
-              <span class="badge badge-disattivato">Disattivato</span>
-            </span>
-            {% endif %}
-          </td>
           <td class="col-azioni" onclick="event.stopPropagation();">
             <a href="{{ url_for('operai_detail', item_id=o.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
           </td>

@@ -957,10 +957,6 @@ button, .btn-primary, .btn-secondary, .btn-cancel, .btn-search, .btn-icon, .btn-
   width: 15%;
 }
 
-.col-stato-ut {
-  width: 14%;
-}
-
 .col-azioni {
   width: 80px;
   text-align: center;
@@ -973,7 +969,6 @@ button, .btn-primary, .btn-secondary, .btn-cancel, .btn-search, .btn-icon, .btn-
 .clienti-table .cl-cognome,
 .clienti-table .cl-indirizzo,
 .clienti-table .cl-telefono,
-.clienti-table .cl-stato,
 .clienti-table .cl-azioni {
   text-align: left;
   vertical-align: middle;

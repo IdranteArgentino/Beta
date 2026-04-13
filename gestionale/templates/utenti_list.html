@@ -23,7 +23,6 @@
           <th class="col-nome-ut">Nome</th>
           <th class="col-cognome-ut">Cognome</th>
           <th class="col-ruolo">Ruolo</th>
-          <th class="col-stato-ut">Stato</th>
           <th class="col-azioni">Dettagli</th>
         </tr>
       </thead>
@@ -39,19 +38,6 @@
             <span class="badge badge-role-admin">ADMIN</span>
             {% else %}
             <span class="badge">Staff</span>
-            {% endif %}
-          </td>
-          <td class="col-stato-ut">
-            {% if u.stato.value == 'ATTIVO' %}
-            <span class="status-indicator">
-              <span class="status-dot attivo"></span>
-              <span class="badge badge-attivo">Attivo</span>
-            </span>
-            {% else %}
-            <span class="status-indicator">
-              <span class="status-dot disattivato"></span>
-              <span class="badge badge-disattivato">Disattivato</span>
-            </span>
             {% endif %}
           </td>
           <td class="col-azioni" onclick="event.stopPropagation();">

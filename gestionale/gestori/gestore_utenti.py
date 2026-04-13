@@ -137,7 +137,7 @@ class GestoreUtenti:
             print(f"Errore nel reset password: {e}")
 
     def cercaUtente(self, termine_ricerca: str, utente_richiedente: Utente) -> list:
-        """Cerca utenti per username, nome o cognome."""
+        """Cerca utenti attivi per username, nome o cognome."""
         try:
             if getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori")
@@ -146,11 +146,11 @@ class GestoreUtenti:
             conn = self._get_conn()
             cur = conn.cursor()
             query = """
-                SELECT * FROM utenti 
-                WHERE username LIKE ? OR nome LIKE ? OR cognome LIKE ?
+                SELECT * FROM utenti
+                WHERE stato = ? AND (username LIKE ? OR nome LIKE ? OR cognome LIKE ?)
             """
             termine = f"%{termine_ricerca}%"
-            cur.execute(query, (termine, termine, termine))
+            cur.execute(query, (StatoEntita.ATTIVO.value, termine, termine, termine))
             rows = cur.fetchall()
             conn.close()
 
@@ -158,7 +158,7 @@ class GestoreUtenti:
             for row in rows:
                 ruolo = RuoloUtente(row['ruolo'])
                 stato = StatoEntita(row['stato'])
-                
+
                 utenti.append(Utente(row['id'], row['username'], row['nome'], row['cognome'], row['password_hash'], stato, ruolo))
             return utenti
         except Exception as e:
@@ -166,14 +166,14 @@ class GestoreUtenti:
             return []
 
     def listaUtenti(self, utente_richiedente: Utente = None) -> list:
-        """Restituisce la lista di tutti gli utenti (solo admin se utente_richiedente specificato)."""
+        """Restituisce la lista di tutti gli utenti attivi (solo admin se utente_richiedente specificato)."""
         try:
             if utente_richiedente is not None and getattr(utente_richiedente, 'ruolo', None) != RuoloUtente.ADMIN:
                 print("Permesso negato: solo amministratori")
                 return []
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM utenti")
+            cur.execute("SELECT * FROM utenti WHERE stato = ?", (StatoEntita.ATTIVO.value,))
             rows = cur.fetchall()
             conn.close()
             return [
@@ -224,7 +224,7 @@ class GestoreUtenti:
             raise PermissionError("Permesso negato: solo amministratori possono riattivare utenti")
         self.modificaUtente(username, stato=StatoEntita.ATTIVO)
 
-    def eliminaUtente(self, username: str, utente_corrente: Utente) -> None:
+    def eliminaUtente(self, username: str, utente_corrente: Utente) -> str:
         """Elimina definitivamente un utente dal sistema (solo admin, no self-delete)."""
         if getattr(utente_corrente, 'ruolo', None) != RuoloUtente.ADMIN:
             raise PermissionError("Permesso negato: solo amministratori possono eliminare utenti")
@@ -234,11 +234,18 @@ class GestoreUtenti:
         try:
             conn = self._get_conn()
             cur = conn.cursor()
+            cur.execute("SELECT id FROM utenti WHERE username = ?", (username,))
+            if not cur.fetchone():
+                conn.close()
+                return "not_found"
+
             cur.execute("DELETE FROM utenti WHERE username = ?", (username,))
             conn.commit()
             conn.close()
+            return "hard_deleted"
         except Exception as e:
             print(f"Errore nell'eliminazione utente: {e}")
+            return "error"
 
     def modificaUtente(self, username: str, nome: str = None, cognome: str = None,
                  password_hash: str = None, stato: StatoEntita = None,

@@ -92,19 +92,18 @@ class GestoreProgetti:
             print(f"Errore nel cambio stato progetto: {e}")
 
     def cercaProgetto(self, termine_ricerca: str) -> list:
-        """Cerca progetti per nome, indirizzo cantiere o id."""
+        """Cerca progetti attivi/non disattivati per nome, indirizzo cantiere o id."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
             query = """
-                SELECT * FROM progetti 
-                WHERE nome_progetto LIKE ?
-                   OR indirizzo_cantiere LIKE ?
-                   OR CAST(id AS TEXT) LIKE ?
+                SELECT * FROM progetti
+                WHERE stato != ?
+                  AND (nome_progetto LIKE ? OR indirizzo_cantiere LIKE ? OR CAST(id AS TEXT) LIKE ?)
                 ORDER BY nome_progetto COLLATE NOCASE ASC
             """
             termine = f"%{(termine_ricerca or '').strip()}%"
-            cur.execute(query, (termine, termine, termine))
+            cur.execute(query, (StatoProgetto.DISATTIVO.value, termine, termine, termine))
             rows = cur.fetchall()
             conn.close()
 
@@ -214,23 +213,40 @@ class GestoreProgetti:
         except Exception as e:
             print(f"Errore nella modifica progetto: {e}")
 
-    def eliminaProgetto(self, id_progetto: int) -> None:
-        """Elimina un progetto."""
+    def eliminaProgetto(self, id_progetto: int) -> str:
+        """Elimina un progetto: soft delete se ha schede associate, hard delete altrimenti."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
+
+            cur.execute("SELECT id FROM progetti WHERE id = ?", (id_progetto,))
+            if not cur.fetchone():
+                conn.close()
+                return "not_found"
+
+            if self._ha_schede_associate(cur, id_progetto):
+                cur.execute("UPDATE progetti SET stato = ? WHERE id = ?", (StatoProgetto.DISATTIVO.value, id_progetto))
+                conn.commit()
+                conn.close()
+                return "soft_deleted"
+
             cur.execute("DELETE FROM progetti WHERE id = ?", (id_progetto,))
             conn.commit()
             conn.close()
+            return "hard_deleted"
         except Exception as e:
             print(f"Errore nell'eliminazione progetto: {e}")
+            return "error"
 
     def listaProgetto(self) -> list:
-        """Restituisce la lista di tutti i progetti."""
+        """Restituisce la lista di tutti i progetti non disattivati."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM progetti ORDER BY nome_progetto COLLATE NOCASE ASC")
+            cur.execute(
+                "SELECT * FROM progetti WHERE stato != ? ORDER BY nome_progetto COLLATE NOCASE ASC",
+                (StatoProgetto.DISATTIVO.value,),
+            )
             rows = cur.fetchall()
             conn.close()
             return [
@@ -347,3 +363,8 @@ class GestoreProgetti:
             )
         except Exception:
             return None
+
+    def _ha_schede_associate(self, cur, id_progetto: int) -> bool:
+        cur.execute("SELECT 1 FROM schede_giornaliere WHERE id_progetto = ? LIMIT 1", (id_progetto,))
+        return cur.fetchone() is not None
+

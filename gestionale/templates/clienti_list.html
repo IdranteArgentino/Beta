@@ -28,7 +28,6 @@
         <th class="cl-cognome">Cognome</th>
         <th class="cl-indirizzo">Indirizzo</th>
         <th class="cl-telefono">Telefono</th>
-        <th class="cl-stato">Stato</th>
         <th class="cl-azioni">Dettagli</th>
       </tr>
     </thead>
@@ -41,19 +40,6 @@
         <td class="cl-cognome">{{ c.cognome or '-' }}</td>
         <td class="cl-indirizzo">{{ c.indirizzo or '-' }}</td>
         <td class="cl-telefono">{{ c.telefono or '-' }}</td>
-        <td class="cl-stato">
-          {% if c.isAttivo() %}
-          <span class="status-indicator">
-            <span class="status-dot attivo"></span>
-            <span class="badge badge-attivo">Attivo</span>
-          </span>
-          {% else %}
-          <span class="status-indicator">
-            <span class="status-dot disattivato"></span>
-            <span class="badge badge-disattivato">Disattivato</span>
-          </span>
-          {% endif %}
-        </td>
         <td class="cl-azioni" onclick='event.stopPropagation();'>
           <a href="{{ url_for('clienti_detail', item_id=c.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
         </td>

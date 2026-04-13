@@ -52,17 +52,18 @@ class GestoreMateriali:
         return Materiale(new_id, desc_norm, unita_misura, float(prezzo_unitario_base), StatoEntita.ATTIVO, note)
 
     def cercaMateriale(self, termine_ricerca: str) -> list:
-        """Cerca materiali per descrizione o id."""
+        """Cerca materiali attivi per descrizione o id."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
             query = """
-                SELECT * FROM materiali 
-                WHERE descrizione LIKE ? OR CAST(id AS TEXT) LIKE ?
+                SELECT * FROM materiali
+                WHERE stato = ?
+                  AND (descrizione LIKE ? OR CAST(id AS TEXT) LIKE ?)
                 ORDER BY descrizione COLLATE NOCASE ASC
             """
             termine = f"%{(termine_ricerca or '').strip()}%"
-            cur.execute(query, (termine, termine))
+            cur.execute(query, (StatoEntita.ATTIVO.value, termine, termine))
             rows = cur.fetchall()
             conn.close()
 
@@ -77,11 +78,14 @@ class GestoreMateriali:
             return []
 
     def listaMateriali(self) -> list:
-        """Restituisce la lista di tutti i materiali."""
+        """Restituisce la lista di tutti i materiali attivi."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM materiali ORDER BY descrizione COLLATE NOCASE ASC")
+            cur.execute(
+                "SELECT * FROM materiali WHERE stato = ? ORDER BY descrizione COLLATE NOCASE ASC",
+                (StatoEntita.ATTIVO.value,),
+            )
             rows = cur.fetchall()
             conn.close()
             return [
@@ -178,16 +182,30 @@ class GestoreMateriali:
         except Exception as e:
             print(f"Errore nella modifica materiale: {e}")
 
-    def eliminaMateriale(self, id_materiale: int) -> None:
-        """Elimina un materiale."""
+    def eliminaMateriale(self, id_materiale: int) -> str:
+        """Elimina un materiale: soft delete se ha voci associate, hard delete altrimenti."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
+
+            cur.execute("SELECT id FROM materiali WHERE id = ?", (id_materiale,))
+            if not cur.fetchone():
+                conn.close()
+                return "not_found"
+
+            if self._ha_voci_materiali_associate(cur, id_materiale):
+                cur.execute("UPDATE materiali SET stato = ? WHERE id = ?", (StatoEntita.DISATTIVATO.value, id_materiale))
+                conn.commit()
+                conn.close()
+                return "soft_deleted"
+
             cur.execute("DELETE FROM materiali WHERE id = ?", (id_materiale,))
             conn.commit()
             conn.close()
+            return "hard_deleted"
         except Exception as e:
             print(f"Errore nell'eliminazione materiale: {e}")
+            return "error"
 
     # ==========================================
     # METODI PRIVATI
@@ -257,3 +275,6 @@ class GestoreMateriali:
             print(f"Errore nel recupero utilizzo per progetto: {e}")
             return {}
 
+    def _ha_voci_materiali_associate(self, cur, id_materiale: int) -> bool:
+        cur.execute("SELECT 1 FROM voci_materiali WHERE id_materiale = ? LIMIT 1", (id_materiale,))
+        return cur.fetchone() is not None

@@ -65,7 +65,7 @@ class GestoreClienti:
             return {"cliente": None, "warning": warning}
 
     def cercaCliente(self, termine_ricerca: str):
-        """Cerca clienti per ragione sociale o id."""
+        """Cerca clienti attivi per ragione sociale, nome, cognome o id."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
@@ -73,10 +73,11 @@ class GestoreClienti:
             like_term = f"%{termine}%"
             query = """
                 SELECT * FROM clienti
-                WHERE ragione_sociale LIKE ? OR CAST(id AS TEXT) LIKE ? OR nome LIKE ? OR cognome LIKE ?
+                WHERE stato = ?
+                  AND (ragione_sociale LIKE ? OR CAST(id AS TEXT) LIKE ? OR nome LIKE ? OR cognome LIKE ?)
                 ORDER BY ragione_sociale COLLATE NOCASE ASC
             """
-            cur.execute(query, (like_term, like_term, like_term, like_term))
+            cur.execute(query, (StatoEntita.ATTIVO.value, like_term, like_term, like_term, like_term))
             rows = cur.fetchall()
             conn.close()
             return [
@@ -91,11 +92,14 @@ class GestoreClienti:
             return []
 
     def listaClienti(self) -> list:
-        """Restituisce la lista di tutti i clienti."""
+        """Restituisce la lista di tutti i clienti attivi."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT * FROM clienti ORDER BY ragione_sociale COLLATE NOCASE ASC")
+            cur.execute(
+                "SELECT * FROM clienti WHERE stato = ? ORDER BY ragione_sociale COLLATE NOCASE ASC",
+                (StatoEntita.ATTIVO.value,),
+            )
             rows = cur.fetchall()
             conn.close()
             return [
@@ -199,14 +203,31 @@ class GestoreClienti:
         except Exception as e:
             print(f"Errore nella modifica cliente: {e}")
 
-    def eliminaCliente(self, id_cliente: int) -> None:
-        """Elimina un cliente."""
+    def eliminaCliente(self, id_cliente: int) -> str:
+        """Elimina un cliente: soft delete se ha progetti associati, hard delete altrimenti."""
         try:
             conn = self._get_conn()
             cur = conn.cursor()
+
+            cur.execute("SELECT id FROM clienti WHERE id = ?", (id_cliente,))
+            if not cur.fetchone():
+                conn.close()
+                return "not_found"
+
+            if self._ha_progetti_associati(cur, id_cliente):
+                cur.execute("UPDATE clienti SET stato = ? WHERE id = ?", (StatoEntita.DISATTIVATO.value, id_cliente))
+                conn.commit()
+                conn.close()
+                return "soft_deleted"
+
             cur.execute("DELETE FROM clienti WHERE id = ?", (id_cliente,))
             conn.commit()
             conn.close()
+            return "hard_deleted"
         except Exception as e:
             print(f"Errore nell'eliminazione cliente: {e}")
+            return "error"
 
+    def _ha_progetti_associati(self, cur, id_cliente: int) -> bool:
+        cur.execute("SELECT 1 FROM progetti WHERE id_cliente = ? LIMIT 1", (id_cliente,))
+        return cur.fetchone() is not None

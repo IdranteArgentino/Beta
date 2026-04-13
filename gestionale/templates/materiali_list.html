@@ -26,7 +26,6 @@
           <th class="col-descrizione">Descrizione</th>
           <th class="col-unita">Unità</th>
           <th class="col-prezzo">Prezzo Unitario</th>
-          <th class="col-stato">Stato</th>
           <th class="col-azioni">Dettagli</th>
         </tr>
       </thead>
@@ -37,19 +36,6 @@
           <td class="col-descrizione"><strong>{{ m.descrizione }}</strong></td>
           <td class="col-unita">{{ m.unita_misura }}</td>
           <td class="col-prezzo">€ {{ m.prezzo_unitario_base|round(2) }}</td>
-          <td class="col-stato">
-            {% if m.isAttivo() %}
-            <span class="status-indicator">
-              <span class="status-dot attivo"></span>
-              <span class="badge badge-attivo">Attivo</span>
-            </span>
-            {% else %}
-            <span class="status-indicator">
-              <span class="status-dot disattivato"></span>
-              <span class="badge badge-disattivato">Disattivato</span>
-            </span>
-            {% endif %}
-          </td>
           <td class="col-azioni" onclick="event.stopPropagation();">
             <a href="{{ url_for('materiali_detail', item_id=m.id) }}" class="btn-icon" title="Visualizza dettagli">👁️</a>
           </td>
